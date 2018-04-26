@@ -3,7 +3,7 @@ title: "integrate single cell dataset"
 output: html_notebook
 ---
 
-```{r}
+```{r,warning=F,message=F}
 library(scater)
 library(scran)
 library(Seurat)
@@ -107,7 +107,7 @@ ggplot(data=NULL, aes(x=PCA_out$x[,1],y=PCA_out$x[,2],col=anno_cell_line,shape=a
 ```
 
 
-```{r}
+```{r,warning=F,message=F}
 srt10x <- CreateSeuratObject(raw.data = counts(sce10x_qc))
 srt10x <- NormalizeData(object = srt10x)
 srt10x <- ScaleData(object = srt10x)
@@ -163,3 +163,27 @@ PCAPlot(srt_all_10000, do.return = T, pt.size = 1, group.by = "cell line")
 ```{r}
 PCAPlot(srt_all_10000, do.return = T, pt.size = 1, group.by = "protocol")
 ```
+
+
+```{r}
+library(zinbwave)
+sce_all = SingleCellExperiment(assay=list(counts=cbind(counts(sce10x_qc)[high_var_genes_10000,], counts(sce4_qc)[high_var_genes_10000,], counts(scedrop_qc_qc)[high_var_genes_10000,])))
+sce_all$protocol = as.factor(anno_col)
+sce_all$cell_line = as.factor(anno_cell_line)
+
+sce_all_zw =  zinbwave(sce_all, 
+                       X="~protocol", 
+                       K=2, 
+                       normalizedValues=TRUE,
+                       residuals = TRUE)
+```
+
+```{r}
+ggplot(data=NULL,aes(x=reducedDim(sce_all_zw,"zinbwave")[,1],y=reducedDim(sce_all_zw,"zinbwave")[,2],shape=sce_all$protocol,col=sce_all$cell_line))+geom_point()
+```
+
+
+```{r}
+ggplot(data=NULL,aes(x=reducedDim(sce_all_zw,"zinbwave")[,1],y=reducedDim(sce_all_zw,"zinbwave")[,2],col=sce_all$protocol,shape=sce_all$cell_line))+geom_point()
+```
+
