@@ -38,11 +38,18 @@ sce10x_hi_var = scran_high_var(sce10x_qc)
 sce4_hi_var = scran_high_var(sce4_qc)
 scedrop_hi_var = scran_high_var(scedrop_qc_qc)
 high_var_genes = Reduce(intersect, list(sce10x_hi_var, sce4_hi_var, scedrop_hi_var))
+
+sce10x_hi_var = scran_high_var(sce10x_qc,topn=10000)
+sce4_hi_var = scran_high_var(sce4_qc,topn=10000)
+scedrop_hi_var = scran_high_var(scedrop_qc_qc,topn=10000)
+high_var_genes_10000 = Reduce(intersect, list(sce10x_hi_var, sce4_hi_var, scedrop_hi_var))
 ```
 
 
 ```{r}
 corrected = mnnCorrect(logcounts(sce10x_qc)[high_var_genes,], logcounts(sce4_qc)[high_var_genes,], logcounts(scedrop_qc_qc)[high_var_genes,])
+
+corrected_10000 = mnnCorrect(logcounts(sce10x_qc)[high_var_genes_10000,], logcounts(sce4_qc)[high_var_genes_10000,], logcounts(scedrop_qc_qc)[high_var_genes_10000,])
 ```
 
 
@@ -58,6 +65,31 @@ PCA_out = prcomp(t(merged_expr))
 PCA_raw = prcomp(t(cbind(logcounts(sce10x_qc)[high_var_genes,], 
                          logcounts(sce4_qc)[high_var_genes,],
                          logcounts(scedrop_qc_qc)[high_var_genes,])))
+```
+
+```{r}
+ggplot(data=NULL, aes(x=PCA_raw$x[,1],y=PCA_raw$x[,2],col=anno_cell_line,shape=anno_col))+
+  geom_point()+
+  labs(x="PC1",y="PC2",col="cell line",shape="protocol")
+```
+
+
+
+```{r}
+ggplot(data=NULL, aes(x=PCA_out$x[,1],y=PCA_out$x[,2],col=anno_cell_line,shape=anno_col))+
+  geom_point()+
+  labs(x="PC1",y="PC2",col="cell line",shape="protocol")
+```
+
+## using more genes
+
+```{r}
+merged_expr_10000 = Reduce(cbind,corrected_10000$corrected)
+
+PCA_out = prcomp(t(merged_expr_10000))
+PCA_raw = prcomp(t(cbind(logcounts(sce10x_qc)[high_var_genes_10000,], 
+                         logcounts(sce4_qc)[high_var_genes_10000,],
+                         logcounts(scedrop_qc_qc)[high_var_genes_10000,])))
 ```
 
 ```{r}
@@ -119,3 +151,15 @@ PCAPlot(srt_all, do.return = T, pt.size = 1, group.by = "cell line")
 PCAPlot(srt_all, do.return = T, pt.size = 1, group.by = "protocol")
 ```
 
+## using more genes
+
+```{r}
+srt_all_10000 = RunMultiCCA(list(srt10x, srt4, srtdrop),genes.use=high_var_genes_10000,num.ccs = 5)
+
+srt_all_10000 <- RunPCA(srt_all_10000, reduction.use = "cca.aligned", dims.use = 1:5)
+PCAPlot(srt_all_10000, do.return = T, pt.size = 1, group.by = "cell line")
+```
+
+```{r}
+PCAPlot(srt_all_10000, do.return = T, pt.size = 1, group.by = "protocol")
+```
