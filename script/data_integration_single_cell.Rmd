@@ -1,0 +1,121 @@
+---
+title: "integrate single cell dataset"
+output: html_notebook
+---
+
+```{r}
+library(scater)
+library(scran)
+library(Seurat)
+load("~/git/CellBench_data/data/sincell_with_class.RData")
+```
+
+
+
+## data normalization
+
+```{r}
+sce10x_qc <- computeSumFactors(sce10x_qc)
+sce10x_qc <- normalize(sce10x_qc)
+
+sce4_qc <- computeSumFactors(sce4_qc)
+sce4_qc <- normalize(sce4_qc)
+
+scedrop_qc_qc <- computeSumFactors(scedrop_qc_qc) # the quality sucks, we do double QC to remove low quality cells `qc_qc`
+scedrop_qc_qc <- normalize(scedrop_qc_qc)
+```
+
+
+```{r}
+scran_high_var = function(sce,topn=2000){
+  var.fit <- trendVar(sce, method="loess", use.spikes=FALSE)
+  var.out <- decomposeVar(sce, var.fit)
+  hvg.out <- var.out[order(var.out$bio, decreasing=TRUE)[1:topn], ]
+  return(rownames(hvg.out))
+}
+
+sce10x_hi_var = scran_high_var(sce10x_qc)
+sce4_hi_var = scran_high_var(sce4_qc)
+scedrop_hi_var = scran_high_var(scedrop_qc_qc)
+high_var_genes = Reduce(intersect, list(sce10x_hi_var, sce4_hi_var, scedrop_hi_var))
+```
+
+
+```{r}
+corrected = mnnCorrect(logcounts(sce10x_qc)[high_var_genes,], logcounts(sce4_qc)[high_var_genes,], logcounts(scedrop_qc_qc)[high_var_genes,])
+```
+
+
+```{r}
+merged_expr = Reduce(cbind,corrected$corrected)
+anno_col = c(rep("10X",ncol(sce10x_qc)),
+             rep("CEL-seq2",ncol(sce4_qc)),
+             rep("Drops-seq",ncol(scedrop_qc_qc)))
+anno_cell_line = c(sce10x_qc$cell_line,
+             sce4_qc$cell_line,
+             scedrop_qc_qc$cell_line)
+PCA_out = prcomp(t(merged_expr))
+PCA_raw = prcomp(t(cbind(logcounts(sce10x_qc)[high_var_genes,], 
+                         logcounts(sce4_qc)[high_var_genes,],
+                         logcounts(scedrop_qc_qc)[high_var_genes,])))
+```
+
+```{r}
+ggplot(data=NULL, aes(x=PCA_raw$x[,1],y=PCA_raw$x[,2],col=anno_cell_line,shape=anno_col))+
+  geom_point()+
+  labs(x="PC1",y="PC2",col="cell line",shape="protocol")
+```
+
+
+
+```{r}
+ggplot(data=NULL, aes(x=PCA_out$x[,1],y=PCA_out$x[,2],col=anno_cell_line,shape=anno_col))+
+  geom_point()+
+  labs(x="PC1",y="PC2",col="cell line",shape="protocol")
+```
+
+
+```{r}
+srt10x <- CreateSeuratObject(raw.data = counts(sce10x_qc))
+srt10x <- NormalizeData(object = srt10x)
+srt10x <- ScaleData(object = srt10x)
+srt10x <- FindVariableGenes(object = srt10x, do.plot = FALSE)
+
+srt4 <- CreateSeuratObject(raw.data = counts(sce4_qc))
+srt4 <- NormalizeData(object = srt4)
+srt4 <- ScaleData(object = srt4)
+srt4 <- FindVariableGenes(object = srt4, do.plot = FALSE)
+colnames(scedrop_qc_qc) = paste0("dropseq_",colnames(scedrop_qc_qc))
+srtdrop <- CreateSeuratObject(raw.data = counts(scedrop_qc_qc))
+srtdrop <- NormalizeData(object = srtdrop)
+srtdrop <- ScaleData(object = srtdrop)
+srtdrop <- FindVariableGenes(object = srtdrop, do.plot = FALSE)
+
+srt10x@meta.data[, "protocol"] <- "10X"
+srt10x@meta.data[, "cell line"] <- sce10x_qc$cell_line
+srt4@meta.data[, "protocol"] <- "CELSeq"
+srt4@meta.data[, "cell line"] <- sce4_qc$cell_line
+srtdrop@meta.data[, "protocol"] <- "Drop-seq"
+srtdrop@meta.data[, "cell line"] <- scedrop_qc_qc$cell_line
+```
+
+
+```{r}
+high_var_genes_seurat = Reduce(intersect, list(srt10x@var.genes, srt4@var.genes, srtdrop@var.genes))
+srt_all = RunMultiCCA(list(srt10x, srt4, srtdrop),genes.use=high_var_genes_seurat,num.ccs = 5)
+```
+
+```{r}
+srt_all <- AlignSubspace(srt_all,reduction.type = "cca",grouping.var="protocol",dims.align = 1:5,verbose = FALSE)
+```
+
+```{r}
+#srt_all <- RunTSNE(srt_all, reduction.use = "cca.aligned", dims.use = 1:5)
+srt_all <- RunPCA(srt_all, reduction.use = "cca.aligned", dims.use = 1:5)
+PCAPlot(srt_all, do.return = T, pt.size = 1, group.by = "cell line")
+```
+
+```{r}
+PCAPlot(srt_all, do.return = T, pt.size = 1, group.by = "protocol")
+```
+
