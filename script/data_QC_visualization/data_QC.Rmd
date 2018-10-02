@@ -1,0 +1,599 @@
+---
+title: "single cell and mixtures QC"
+output: html_notebook
+---
+
+```{r}
+library(scPipe)
+library(ggplot2)
+```
+
+```{r}
+fix_colname = function(sce){
+  sce = sce[,!(colnames(sce) == "L19")]
+  colnames(sce)[colnames(sce)=="A1"] = "L19"
+  colnames(sce)[colnames(sce)=="A2"] = "M19"
+  return(sce)
+}
+
+
+rm_colname = function(sce){
+  sce = sce[,!(colnames(sce) == "L19")]
+  sce = sce[,!(colnames(sce) == "A1")]
+  sce = sce[,!(colnames(sce) == "A2")]
+  return(sce)
+}
+
+
+add_9cell_anno = function(sce){
+  cell_anno = read.csv("~/Dropbox/research/benchmark/FACS_design_benchmark.csv")
+  cell_anno = cell_anno[cell_anno$wall_position %in% colnames(sce),]
+  rownames(cell_anno) = cell_anno$wall_position
+  cell_anno = cell_anno[colnames(sce),]
+  colData(sce) = cbind(colData(sce),DataFrame(cell_anno[,c("H1975", "H2228", "HCC827", "poor_quality", "traj")]))
+  return(sce)
+}
+
+
+gene_filter = function(sce){
+  keep1 = (apply(counts(sce), 1, function(x) mean(x[x>0])) > 1.1)  # average count larger than 1.1
+  keep2 = (rowSums(counts(sce)>0) > 5) 
+  sce = sce[(keep1 & keep2), ]
+  return(sce)
+}
+```
+
+```{r}
+sce_SC1 = create_sce_by_dir("~/Dropbox/research/benchmark/NN79/SC1", organism="hsapiens_gene_ensembl", gene_id_type="ensembl_gene_id")
+sce_SC1 = calculate_QC_metrics(sce_SC1)
+sce_SC2 = create_sce_by_dir("~/Dropbox/research/benchmark/NN79/SC2", organism="hsapiens_gene_ensembl", gene_id_type="ensembl_gene_id")
+sce_SC2 = calculate_QC_metrics(sce_SC2)
+sce_SC3 = create_sce_by_dir("~/Dropbox/research/benchmark/NN79/SC3", organism="hsapiens_gene_ensembl", gene_id_type="ensembl_gene_id")
+sce_SC3 = calculate_QC_metrics(sce_SC3)
+sce_SC4 = create_sce_by_dir("~/Dropbox/research/benchmark/NN79/SC4", organism="hsapiens_gene_ensembl", gene_id_type="ensembl_gene_id")
+sce_SC4 = calculate_QC_metrics(sce_SC4)
+sce_POP = create_sce_by_dir("~/Dropbox/research/benchmark/NN79/POP", organism="hsapiens_gene_ensembl", gene_id_type="ensembl_gene_id")
+sce_POP = calculate_QC_metrics(sce_POP)
+sce_POP_sel = sce_POP[, grepl("^O",colnames(sce_POP))]
+
+sce_SC1 = fix_colname(sce_SC1)
+sce_SC2 = fix_colname(sce_SC2)
+sce_SC3 = fix_colname(sce_SC3)
+sce_SC4 = fix_colname(sce_SC4)
+
+
+
+sce4 = create_sce_by_dir(datadir = "/Users/tian.l/data/NN84/RPI4", organism="hsapiens_gene_ensembl", gene_id_type="ensembl_gene_id")
+sce10x = create_sce_by_dir(datadir = "/Users/tian.l/data/NN76", organism="hsapiens_gene_ensembl", gene_id_type="ensembl_gene_id")
+scedrop = create_sce_by_dir(datadir = "/Users/tian.l/data/NN86/N701", organism="hsapiens_gene_ensembl", gene_id_type="ensembl_gene_id")
+
+sce4=calculate_QC_metrics(sce4)
+sce10x=calculate_QC_metrics(sce10x)
+scedrop=calculate_QC_metrics(scedrop)
+
+sce2 = create_sce_by_dir(datadir = "/Users/tian.l/data/NN84/RPI2", organism="hsapiens_gene_ensembl", gene_id_type="ensembl_gene_id")
+sce8 = create_sce_by_dir(datadir = "/Users/tian.l/data/NN84/RPI8", organism="hsapiens_gene_ensembl", gene_id_type="ensembl_gene_id")
+sce2 = fix_colname(sce2)
+sce8 = fix_colname(sce8)
+sce2=calculate_QC_metrics(sce2)
+sce8=calculate_QC_metrics(sce8)
+
+
+```
+
+
+```{r}
+sel_col = c("unaligned", "aligned_unmapped", "ambiguous_mapping",
+              "mapped_to_ERCC", "mapped_to_intron", "mapped_to_exon")
+tmp = as.data.frame(QC_metrics(sce_SC1)[,sel_col])
+mapping1 = tmp$mapped_to_exon/rowSums(tmp)
+tmp = as.data.frame(QC_metrics(sce_SC2)[,sel_col])
+mapping2 = tmp$mapped_to_exon/rowSums(tmp)
+tmp = as.data.frame(QC_metrics(sce_SC3)[,sel_col])
+mapping3 = tmp$mapped_to_exon/rowSums(tmp)
+tmp = as.data.frame(QC_metrics(sce_SC4)[,sel_col])
+mapping4 = tmp$mapped_to_exon/rowSums(tmp)
+tmp = as.data.frame(QC_metrics(sce_POP_sel)[,sel_col])
+mapping_pop = tmp$mapped_to_exon/rowSums(tmp)
+
+tmp = as.data.frame(QC_metrics(sce2)[,sel_col])
+mapping_sce2 = tmp$mapped_to_exon/rowSums(tmp)
+tmp = as.data.frame(QC_metrics(sce4)[,sel_col])
+mapping_sce4 = tmp$mapped_to_exon/rowSums(tmp)
+tmp = as.data.frame(QC_metrics(sce8)[,sel_col])
+mapping_sce8 = tmp$mapped_to_exon/rowSums(tmp)
+
+sel_col = c("unaligned", "aligned_unmapped", "ambiguous_mapping", "mapped_to_intron", "mapped_to_exon")
+tmp = as.data.frame(QC_metrics(sce10x)[,sel_col])
+mapping_sce10x = tmp$mapped_to_exon/rowSums(tmp)
+tmp = as.data.frame(QC_metrics(scedrop)[,sel_col])
+mapping_scedrop = tmp$mapped_to_exon/rowSums(tmp)
+
+mapping_prop = data.frame(exon_mapping_rate=c(mapping1,mapping2,mapping3,mapping4,mapping_pop,mapping_sce2,mapping_sce4,mapping_sce8,mapping_sce10x,mapping_scedrop),batch=c(rep("9cellmix_0.7_1/9",length(mapping1)),rep("9cellmix_0.8_1/9",length(mapping2)),rep("9cellmix_0.9_1/9",length(mapping3)),rep("9cellmix_0.7_3/9",length(mapping4)),rep("90cellmix_0.7",length(mapping_pop)),rep("mRNAmix_CELseq",length(mapping_sce2)),rep("sc_CELseq",length(mapping_sce4)),rep("mRNAmix_SORTseq",length(mapping_sce8)),rep("sc_10X",length(mapping_sce10x)),rep("sc_dolomite",length(mapping_scedrop)) ))
+
+mapping_prop$batch = factor(mapping_prop$batch, levels = c("sc_10X","sc_dolomite","sc_CELseq","mRNAmix_SORTseq","mRNAmix_CELseq","90cellmix_0.7","9cellmix_0.7_3/9","9cellmix_0.7_1/9","9cellmix_0.8_1/9","9cellmix_0.9_1/9"))
+exon_mapping_prop = mapping_prop
+p = ggplot(mapping_prop, aes(x=batch, y=exon_mapping_rate,fill=batch))+geom_boxplot()+theme_bw()+theme(axis.text.x = element_text(angle = 30, hjust = 1),text = element_text(size=20))
+pdf("exon_mapping_batch.pdf",width = 8,height = 4)
+p
+dev.off()
+p
+```
+
+```{r}
+sel_col = c("unaligned", "aligned_unmapped", "ambiguous_mapping",
+              "mapped_to_ERCC", "mapped_to_intron", "mapped_to_exon")
+tmp = as.data.frame(QC_metrics(sce_SC1)[,sel_col])
+mapping1 = tmp$mapped_to_intron/rowSums(tmp)
+tmp = as.data.frame(QC_metrics(sce_SC2)[,sel_col])
+mapping2 = tmp$mapped_to_intron/rowSums(tmp)
+tmp = as.data.frame(QC_metrics(sce_SC3)[,sel_col])
+mapping3 = tmp$mapped_to_intron/rowSums(tmp)
+tmp = as.data.frame(QC_metrics(sce_SC4)[,sel_col])
+mapping4 = tmp$mapped_to_intron/rowSums(tmp)
+tmp = as.data.frame(QC_metrics(sce_POP_sel)[,sel_col])
+mapping_pop = tmp$mapped_to_intron/rowSums(tmp)
+
+tmp = as.data.frame(QC_metrics(sce2)[,sel_col])
+mapping_sce2 = tmp$mapped_to_intron/rowSums(tmp)
+tmp = as.data.frame(QC_metrics(sce4)[,sel_col])
+mapping_sce4 = tmp$mapped_to_intron/rowSums(tmp)
+tmp = as.data.frame(QC_metrics(sce8)[,sel_col])
+mapping_sce8 = tmp$mapped_to_intron/rowSums(tmp)
+
+sel_col = c("unaligned", "aligned_unmapped", "ambiguous_mapping", "mapped_to_intron", "mapped_to_exon")
+tmp = as.data.frame(QC_metrics(sce10x)[,sel_col])
+mapping_sce10x = tmp$mapped_to_intron/rowSums(tmp)
+tmp = as.data.frame(QC_metrics(scedrop)[,sel_col])
+mapping_scedrop = tmp$mapped_to_intron/rowSums(tmp)
+
+mapping_prop = data.frame(intron_mapping_rate=c(mapping1,mapping2,mapping3,mapping4,mapping_pop,mapping_sce2,mapping_sce4,mapping_sce8,mapping_sce10x,mapping_scedrop),batch=c(rep("cellmix1",length(mapping1)),rep("cellmix2",length(mapping2)),rep("cellmix3",length(mapping3)),rep("cellmix4",length(mapping4)),rep("cellmix5",length(mapping_pop)),rep("RNAmix_CEL-seq2",length(mapping_sce2)),rep("sc_Cel-seq2",length(mapping_sce4)),rep("RNAmix_Sort-seq",length(mapping_sce8)),rep("sc_10X",length(mapping_sce10x)),rep("sc_Drop-seq",length(mapping_scedrop)) ))
+
+mapping_prop$batch = factor(mapping_prop$batch, levels = c("sc_10X","sc_Cel-seq2","sc_Drop-seq","cellmix1","cellmix2","cellmix3","cellmix4","cellmix5","RNAmix_CEL-seq2","RNAmix_Sort-seq"))
+
+p = ggplot(mapping_prop, aes(x=batch, y=intron_mapping_rate,fill=batch))+geom_boxplot()+theme_bw()+theme(axis.text.x = element_text(angle = 30, hjust = 1),text = element_text(size=20))
+pdf("intron_mapping_batch.pdf",width = 8,height = 4)
+p
+dev.off()
+p
+```
+
+
+```{r}
+sce_SC1_qc = detect_outlier(sce_SC1, type="low", comp = 2)
+table(QC_metrics(sce_SC1_qc)$outliers)
+ggplot(as.data.frame(QC_metrics(sce_SC1_qc)), aes(x=(total_count_per_cell), y=number_of_genes,col=outliers))+geom_point(alpha=0.8)
+```
+
+```{r}
+sce_SC2_qc = detect_outlier(sce_SC2, type="low", comp = 2)
+table(QC_metrics(sce_SC2_qc)$outliers)
+ggplot(as.data.frame(QC_metrics(sce_SC2_qc)), aes(x=(total_count_per_cell), y=number_of_genes,col=outliers))+geom_point(alpha=0.8)
+
+```
+
+```{r}
+sce_SC3_qc = detect_outlier(sce_SC3, type="low", comp = 2)
+table(QC_metrics(sce_SC3_qc)$outliers)
+ggplot(as.data.frame(QC_metrics(sce_SC3_qc)), aes(x=(total_count_per_cell), y=number_of_genes,col=outliers))+geom_point(alpha=0.8)
+
+```
+
+```{r}
+sce_SC4_qc = detect_outlier(sce_SC4, type="low", comp = 2)
+table(QC_metrics(sce_SC4_qc)$outliers)
+ggplot(as.data.frame(QC_metrics(sce_SC4_qc)), aes(x=(total_count_per_cell), y=number_of_genes,col=outliers))+geom_point(alpha=0.8)
+
+```
+
+```{r}
+sce2_qc = detect_outlier(sce2, type="low", comp = 2)
+table(QC_metrics(sce2_qc)$outliers)
+ggplot(as.data.frame(QC_metrics(sce2_qc)), aes(x=(total_count_per_cell), y=number_of_genes,col=outliers))+geom_point(alpha=0.8)
+
+```
+ 
+```{r}
+sce4_qc = detect_outlier(sce4, type="low", comp = 2)
+table(QC_metrics(sce4_qc)$outliers)
+ggplot(as.data.frame(QC_metrics(sce4_qc)), aes(x=(total_count_per_cell), y=number_of_genes,col=outliers))+geom_point(alpha=0.8)
+
+```
+
+```{r}
+sce8_qc = detect_outlier(sce8, type="low", comp = 2)
+table(QC_metrics(sce8_qc)$outliers)
+ggplot(as.data.frame(QC_metrics(sce8_qc)), aes(x=(total_count_per_cell), y=number_of_genes,col=outliers))+geom_point(alpha=0.8)
+
+```
+
+
+```{r}
+sce10x_qc = detect_outlier(sce10x, type="low", comp = 4)
+table(QC_metrics(sce10x_qc)$outliers)
+ggplot(as.data.frame(QC_metrics(sce10x_qc)), aes(x=(total_count_per_cell), y=number_of_genes,col=outliers))+geom_point(alpha=0.8)
+
+```
+
+```{r}
+scedrop_qc = detect_outlier(scedrop, type="low", comp = 3)
+table(QC_metrics(scedrop_qc)$outliers)
+ggplot(as.data.frame(QC_metrics(scedrop_qc)), aes(x=(total_count_per_cell), y=number_of_genes,col=outliers))+geom_point(alpha=0.8)
+
+```
+
+```{r}
+
+ggplot(as.data.frame(QC_metrics(sce_POP_sel)), aes(x=(total_count_per_cell), y=number_of_genes))+geom_point(alpha=0.8)
+sce_POP_sel_qc = sce_POP_sel[,QC_metrics(sce_POP_sel)$number_of_genes>10000]
+```
+
+
+```{r}
+sel_col = c("unaligned", "aligned_unmapped", "ambiguous_mapping",
+              "mapped_to_ERCC", "mapped_to_intron", "mapped_to_exon", "outliers")
+tmp = as.data.frame(QC_metrics(sce_SC1_qc)[,sel_col])
+mapping1 = sum(tmp$outliers==TRUE)
+tmp = as.data.frame(QC_metrics(sce_SC2_qc)[,sel_col])
+mapping2 = sum(tmp$outliers==TRUE)
+tmp = as.data.frame(QC_metrics(sce_SC3_qc)[,sel_col])
+mapping3 = sum(tmp$outliers==TRUE)
+tmp = as.data.frame(QC_metrics(sce_SC4_qc)[,sel_col])
+mapping4 = sum(tmp$outliers==TRUE)
+
+
+tmp = as.data.frame(QC_metrics(sce2_qc)[,sel_col])
+mapping_sce2 = sum(tmp$outliers==TRUE)
+tmp = as.data.frame(QC_metrics(sce4_qc)[,sel_col])
+mapping_sce4 = sum(tmp$outliers==TRUE)
+tmp = as.data.frame(QC_metrics(sce8_qc)[,sel_col])
+mapping_sce8 = sum(tmp$outliers==TRUE)
+
+mapping_prop = data.frame(outliers=c(mapping1,mapping2,mapping3,mapping4,mapping_sce2,mapping_sce4,mapping_sce8),batch=c(rep("9cellmix_0.7_1/9",length(mapping1)),rep("9cellmix_0.8_1/9",length(mapping2)),rep("9cellmix_0.9_1/9",length(mapping3)),rep("9cellmix_0.7_3/9",length(mapping4)),rep("mRNAmix_CELseq",length(mapping_sce2)),rep("sc_CELseq",length(mapping_sce4)),rep("mRNAmix_SORTseq",length(mapping_sce8)) ))
+
+mapping_prop$batch = factor(mapping_prop$batch, levels = c("sc_CELseq","mRNAmix_SORTseq","mRNAmix_CELseq","9cellmix_0.7_3/9","9cellmix_0.7_1/9","9cellmix_0.8_1/9","9cellmix_0.9_1/9"))
+
+p = ggplot(mapping_prop, aes(x=batch, y=outliers,fill=batch))+geom_bar(stat="identity")+theme_bw()+theme(axis.text.x = element_text(angle = 45, hjust = 1),text = element_text(size=20))
+pdf("outliers_batch.pdf",width = 8,height = 4)
+p
+dev.off()
+p
+```
+
+```{r}
+sce_SC1_qc = remove_outliers(sce_SC1_qc)
+sce_SC2_qc = remove_outliers(sce_SC2_qc)
+sce_SC3_qc = remove_outliers(sce_SC3_qc)
+sce_SC4_qc = remove_outliers(sce_SC4_qc)
+
+sce2_qc = remove_outliers(sce2_qc)
+sce4_qc = remove_outliers(sce4_qc)
+sce8_qc = remove_outliers(sce8_qc)
+
+sce10x_qc = remove_outliers(sce10x_qc)
+scedrop_qc = remove_outliers(scedrop_qc)
+```
+
+
+
+```{r}
+sel_col = c("unaligned", "aligned_unmapped", "ambiguous_mapping",
+              "mapped_to_ERCC", "mapped_to_intron", "mapped_to_exon", "number_of_genes")
+tmp = as.data.frame(QC_metrics(sce_SC1_qc)[,sel_col])
+mapping1 = log2(tmp$number_of_genes)
+tmp = as.data.frame(QC_metrics(sce_SC2_qc)[,sel_col])
+mapping2 = log2(tmp$number_of_genes)
+tmp = as.data.frame(QC_metrics(sce_SC3_qc)[,sel_col])
+mapping3 = log2(tmp$number_of_genes)
+tmp = as.data.frame(QC_metrics(sce_SC4_qc)[,sel_col])
+mapping4 = log2(tmp$number_of_genes)
+tmp = as.data.frame(QC_metrics(sce_POP_sel_qc)[,sel_col])
+mapping_pop = log2(tmp$number_of_genes)
+
+
+tmp = as.data.frame(QC_metrics(sce2_qc)[,sel_col])
+mapping_sce2 = log2(tmp$number_of_genes)
+tmp = as.data.frame(QC_metrics(sce4_qc)[,sel_col])
+mapping_sce4 = log2(tmp$number_of_genes)
+tmp = as.data.frame(QC_metrics(sce8_qc)[,sel_col])
+mapping_sce8 = log2(tmp$number_of_genes)
+
+sel_col = c("unaligned", "aligned_unmapped", "ambiguous_mapping", "mapped_to_intron", "mapped_to_exon", "number_of_genes")
+tmp = as.data.frame(QC_metrics(sce10x_qc)[,sel_col])
+mapping_sce10x = log2(tmp$number_of_genes)
+tmp = as.data.frame(QC_metrics(scedrop_qc)[,sel_col])
+mapping_scedrop = log2(tmp$number_of_genes)
+
+
+mapping_prop = data.frame(number_of_genes=c(mapping1,mapping2,mapping3,mapping4,mapping_pop,mapping_sce2,mapping_sce4,mapping_sce8,mapping_sce10x,mapping_scedrop),batch=c(rep("9cellmix_0.7_1/9",length(mapping1)),rep("9cellmix_0.8_1/9",length(mapping2)),rep("9cellmix_0.9_1/9",length(mapping3)),rep("9cellmix_0.7_3/9",length(mapping4)),rep("90cellmix_0.7",length(mapping_pop)),rep("mRNAmix_CELseq",length(mapping_sce2)),rep("sc_CELseq",length(mapping_sce4)),rep("mRNAmix_SORTseq",length(mapping_sce8)),rep("sc_10X",length(mapping_sce10x)),rep("sc_dolomite",length(mapping_scedrop)) ))
+
+mapping_prop$batch = factor(mapping_prop$batch, levels = c("sc_10X","sc_dolomite","sc_CELseq","mRNAmix_SORTseq","mRNAmix_CELseq","90cellmix_0.7","9cellmix_0.7_3/9","9cellmix_0.7_1/9","9cellmix_0.8_1/9","9cellmix_0.9_1/9"))
+gene_num_prop = mapping_prop
+p = ggplot(mapping_prop, aes(x=batch, y=number_of_genes,fill=batch))+geom_boxplot()+theme_bw()+theme(axis.text.x = element_text(angle = 45, hjust = 1),text = element_text(size=20))
+pdf("number_of_genes_batch.pdf",width = 8,height = 4)
+p
+dev.off()
+p
+```
+
+
+```{r}
+sel_col = c("unaligned", "aligned_unmapped", "ambiguous_mapping",
+              "mapped_to_ERCC", "mapped_to_intron", "mapped_to_exon", "total_count_per_cell")
+tmp = as.data.frame(QC_metrics(sce_SC1_qc)[,sel_col])
+mapping1 = log2(tmp$total_count_per_cell)
+tmp = as.data.frame(QC_metrics(sce_SC2_qc)[,sel_col])
+mapping2 = log2(tmp$total_count_per_cell)
+tmp = as.data.frame(QC_metrics(sce_SC3_qc)[,sel_col])
+mapping3 = log2(tmp$total_count_per_cell)
+tmp = as.data.frame(QC_metrics(sce_SC4_qc)[,sel_col])
+mapping4 = log2(tmp$total_count_per_cell)
+tmp = as.data.frame(QC_metrics(sce_POP_sel_qc)[,sel_col])
+mapping_pop = log2(tmp$total_count_per_cell)
+
+
+tmp = as.data.frame(QC_metrics(sce2_qc)[,sel_col])
+mapping_sce2 = log2(tmp$total_count_per_cell)
+tmp = as.data.frame(QC_metrics(sce4_qc)[,sel_col])
+mapping_sce4 = log2(tmp$total_count_per_cell)
+tmp = as.data.frame(QC_metrics(sce8_qc)[,sel_col])
+mapping_sce8 = log2(tmp$total_count_per_cell)
+
+sel_col = c("unaligned", "aligned_unmapped", "ambiguous_mapping", "mapped_to_intron", "mapped_to_exon", "total_count_per_cell")
+tmp = as.data.frame(QC_metrics(sce10x_qc)[,sel_col])
+mapping_sce10x = log2(tmp$total_count_per_cell)
+tmp = as.data.frame(QC_metrics(scedrop_qc)[,sel_col])
+mapping_scedrop = log2(tmp$total_count_per_cell)
+
+
+mapping_prop = data.frame(log2_molecule_count=c(mapping1,mapping2,mapping3,mapping4,mapping_pop,mapping_sce2,mapping_sce4,mapping_sce8,mapping_sce10x,mapping_scedrop),batch=c(rep("9cellmix_0.7_1/9",length(mapping1)),rep("9cellmix_0.8_1/9",length(mapping2)),rep("9cellmix_0.9_1/9",length(mapping3)),rep("9cellmix_0.7_3/9",length(mapping4)),rep("90cellmix_0.7",length(mapping_pop)),rep("mRNAmix_CELseq",length(mapping_sce2)),rep("sc_CELseq",length(mapping_sce4)),rep("mRNAmix_SORTseq",length(mapping_sce8)),rep("sc_10X",length(mapping_sce10x)),rep("sc_dolomite",length(mapping_scedrop)) ))
+
+mapping_prop$batch = factor(mapping_prop$batch, levels = c("sc_10X","sc_dolomite","sc_CELseq","mRNAmix_SORTseq","mRNAmix_CELseq","90cellmix_0.7","9cellmix_0.7_3/9","9cellmix_0.7_1/9","9cellmix_0.8_1/9","9cellmix_0.9_1/9"))
+UMI_count_prop = mapping_prop
+p = ggplot(mapping_prop, aes(x=batch, y=log2_molecule_count,fill=batch))+geom_boxplot()+theme_bw()+theme(axis.text.x = element_text(angle = 45, hjust = 1),text = element_text(size=20))
+pdf("UMI_count_batch.pdf",width = 8,height = 4)
+p
+dev.off()
+p
+```
+
+
+summary heatmap of QC metrics
+
+```{r}
+gene_num_prop = gene_num_prop[!(gene_num_prop$batch == "90cellmix_0.7"),]
+exon_mapping_prop = exon_mapping_prop[!(exon_mapping_prop$batch == "90cellmix_0.7"),]
+UMI_count_prop = UMI_count_prop[!(UMI_count_prop$batch == "90cellmix_0.7"),]
+
+gene_num_prop$cat = "number of genes"
+exon_mapping_prop$cat = "exon mapping rate"
+UMI_count_prop$cat = "UMI counts"
+
+UMI_count_prop$val = (UMI_count_prop$log2_molecule_count)
+exon_mapping_prop$val = (exon_mapping_prop$exon_mapping_rate)
+gene_num_prop$val = (gene_num_prop$number_of_genes)
+
+gene_num_prop = gene_num_prop[,c("val", "cat", "batch")]
+exon_mapping_prop = exon_mapping_prop[,c("val", "cat", "batch")]
+UMI_count_prop = UMI_count_prop[,c("val", "cat", "batch")]
+
+combined_QC = rbind(gene_num_prop, exon_mapping_prop, UMI_count_prop)
+
+combined_QC_mean = aggregate(. ~ cat+batch, data = combined_QC, mean)
+```
+
+```{r}
+pp1=ggplot(combined_QC_mean, aes(batch, cat )) +
+  geom_tile(aes(fill = val), color = "white") +
+  scale_fill_gradient(low = "red", high = "green")+
+  theme_bw()+
+  theme(axis.line = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        axis.text.y = element_text(angle = 45, hjust = 1),
+        text = element_text(size=20),
+        axis.title.x=element_blank(),
+        axis.title.y=element_blank()
+        ) 
+
+pdf("combiend_QC.pdf",width = 10,height = 3)
+pp1
+dev.off()
+pp1
+```
+
+```{r}
+commonDisp <- read.csv("~/Dropbox/research/benchmark/commonDisp.csv", header=T)
+```
+
+```{r}
+disp_df = data.frame(val=commonDisp[,2],
+                     batch=c("mRNAmix_CELseq","mRNAmix_SORTseq","9cellmix_0.7_1/9",
+                                                "9cellmix_0.8_1/9","9cellmix_0.9_1/9","9cellmix_0.7_3/9",
+                                                "sc_10X","sc_CELseq","sc_dolomite"),
+                     cat=rep("biological variation",9))
+
+var_df = data.frame(val=c(7,7,34,34,34,34,3,3,3),
+                     batch=c("mRNAmix_CELseq","mRNAmix_SORTseq","9cellmix_0.7_1/9",
+                                                "9cellmix_0.8_1/9","9cellmix_0.9_1/9","9cellmix_0.7_3/9",
+                                                "sc_10X","sc_CELseq","sc_dolomite"),
+                     cat=rep("population heterogeneity",9))
+```
+
+
+```{r}
+merged_df = rbind(disp_df, var_df, combined_QC_mean)
+wide_df = reshape(merged_df, idvar = "cat", timevar = "batch", direction = "wide")
+rownames(wide_df) = wide_df$cat
+wide_df = wide_df[,!(colnames(wide_df) == "cat")]
+colnames(wide_df) = c("RNAmix_Cel-seq2", "RNAmix_Sort-seq", "cellmix1", "cellmix2", "cellmix3", "cellmix4",
+                      "sc_10X", "sc_Cel-seq2", "sc_Drop-seq")
+wide_df = wide_df[,c("sc_Cel-seq2", "sc_10X", "sc_Drop-seq", "cellmix1", "cellmix2", "cellmix3", "cellmix4",
+                     "RNAmix_Cel-seq2", "RNAmix_Sort-seq")]
+wide_df = wide_df[c("exon mapping rate", "number of genes", "UMI counts", "population heterogeneity", "biological variation"),]
+```
+
+
+```{r}
+pdf("data_summary.pdf",width = 15,height = 4)
+pheatmap::pheatmap(wide_df, scale = "row", cluster_rows=F, cluster_cols=F,
+                   gaps_row=c(3),gaps_col = c(3,7),fontsize=15,border_color="white")
+dev.off()
+pdf("data_summary_na.pdf",width = 15,height = 2)
+pheatmap::pheatmap(wide_df, scale = "row", cluster_rows=F, cluster_cols=F,
+                   gaps_row=c(3),gaps_col = c(3,7),fontsize=15,border_color="white",
+                   show_rownames=F,show_colnames = F)
+dev.off()
+```
+
+
+```{r}
+mapping1 = colSums(counts(sce_SC1)[grepl("^ERCC",rownames(sce_SC1)),])
+mapping2 = colSums(counts(sce_SC2)[grepl("^ERCC",rownames(sce_SC2)),])
+mapping3 = colSums(counts(sce_SC3)[grepl("^ERCC",rownames(sce_SC3)),])
+mapping4 = colSums(counts(sce_SC4)[grepl("^ERCC",rownames(sce_SC4)),])
+mapping_pop = colSums(counts(sce_POP_sel)[grepl("^ERCC",rownames(sce_POP_sel)),])
+
+mapping_prop = data.frame(ERCC_molecule_count=c(mapping1,mapping2,mapping3,mapping4,mapping_pop),batch=c(rep("SC1",length(mapping1)),rep("SC2",length(mapping2)),rep("SC3",length(mapping4)),rep("SC4",length(mapping4)),rep("POP",length(mapping_pop))))
+p = ggplot(mapping_prop, aes(x=batch, y=ERCC_molecule_count,fill=batch))+geom_boxplot()+theme_bw()+theme(text = element_text(size=20))
+pdf("ERCC_count_batch.pdf")
+p
+dev.off()
+p
+```
+
+
+```{r}
+sce_NN77_RPI4 = create_sce_by_dir("~/data/NN77/RPI4", organism="mmusculus_gene_ensembl", gene_id_type="ensembl_gene_id")
+sce_NN77_RPI4 = calculate_QC_metrics(sce_NN77_RPI4)
+sce_CB51 = create_sce_by_dir("~/data/CB51/CB51_data", organism="mmusculus_gene_ensembl", gene_id_type="ensembl_gene_id")
+sce_CB51 = calculate_QC_metrics(sce_CB51)
+sce_NN75_RPI3 = create_sce_by_dir("~/data/NN75/RPI3", organism="hsapiens_gene_ensembl", gene_id_type="ensembl_gene_id")
+sce_NN75_RPI3 = calculate_QC_metrics(sce_NN75_RPI3)
+sce_NN75_RPI3 = sce_NN75_RPI3[, colSums(counts(sce_NN75_RPI3))>0]
+sce_NN75_RPI3 = detect_outlier(sce_NN75_RPI3,comp = 2)
+sce_NN75_RPI3 = remove_outliers(sce_NN75_RPI3)
+```
+
+
+```{r}
+mapping1 = colSums(counts(sce_NN77_RPI4)[grepl("^ERCC",rownames(sce_NN77_RPI4)),])
+mapping2 = colSums(counts(sce_CB51)[grepl("^ERCC",rownames(sce_CB51)),])
+mapping3 = colSums(counts(sce_NN75_RPI3)[grepl("^ERCC",rownames(sce_NN75_RPI3)),])
+
+mapping_prop1 = data.frame(ERCC_molecule_count=c(mapping1,mapping2,mapping3),batch=c(rep("NN77_RPI4",length(mapping1)),rep("CB51",length(mapping2)),rep("NN75_RPI3",length(mapping3))))
+mapping_prop = rbind(mapping_prop1,mapping_prop)
+p = ggplot(mapping_prop, aes(x=batch, y=ERCC_molecule_count,fill=batch))+geom_boxplot()+theme_bw()+theme(text = element_text(size=20),axis.text.x = element_text(angle=45, hjust=1))
+pdf("ERCC_count_batch_comp.pdf")
+p
+dev.off()
+p
+```
+
+
+```{r}
+sel_col = c("unaligned", "aligned_unmapped", "ambiguous_mapping",
+              "mapped_to_ERCC", "mapped_to_intron", "mapped_to_exon", "total_count_per_cell")
+tmp = as.data.frame(QC_metrics(sce_SC1_qc)[,sel_col])
+mapping1 = tmp$mapped_to_exon/tmp$total_count_per_cell
+tmp = as.data.frame(QC_metrics(sce_SC2_qc)[,sel_col])
+mapping2 = tmp$mapped_to_exon/tmp$total_count_per_cell
+tmp = as.data.frame(QC_metrics(sce_SC3_qc)[,sel_col])
+mapping3 = tmp$mapped_to_exon/tmp$total_count_per_cell
+tmp = as.data.frame(QC_metrics(sce_SC4_qc)[,sel_col])
+mapping4 = tmp$mapped_to_exon/tmp$total_count_per_cell
+tmp = as.data.frame(QC_metrics(sce_POP_sel_qc)[,sel_col])
+mapping_pop = tmp$mapped_to_exon/tmp$total_count_per_cell
+
+
+tmp = as.data.frame(QC_metrics(sce2_qc)[,sel_col])
+mapping_sce2 = tmp$mapped_to_exon/tmp$total_count_per_cell
+tmp = as.data.frame(QC_metrics(sce4_qc)[,sel_col])
+mapping_sce4 = tmp$mapped_to_exon/tmp$total_count_per_cell
+tmp = as.data.frame(QC_metrics(sce8_qc)[,sel_col])
+mapping_sce8 = tmp$mapped_to_exon/tmp$total_count_per_cell
+
+sel_col = c("unaligned", "aligned_unmapped", "ambiguous_mapping", "mapped_to_intron", "mapped_to_exon", "total_count_per_cell")
+tmp = as.data.frame(QC_metrics(sce10x_qc)[,sel_col])
+mapping_sce10x = tmp$mapped_to_exon/tmp$total_count_per_cell
+tmp = as.data.frame(QC_metrics(scedrop_qc)[,sel_col])
+mapping_scedrop = tmp$mapped_to_exon/tmp$total_count_per_cell
+
+
+mapping_prop = data.frame(before_after_UMI_dedup_ratio=c(mapping1,mapping2,mapping3,mapping4,mapping_pop,mapping_sce2,mapping_sce4,mapping_sce8,mapping_sce10x,mapping_scedrop),batch=c(rep("9cellmix_0.7_1/9",length(mapping1)),rep("9cellmix_0.8_1/9",length(mapping2)),rep("9cellmix_0.9_1/9",length(mapping3)),rep("9cellmix_0.7_3/9",length(mapping4)),rep("90cellmix_0.7",length(mapping_pop)),rep("mRNAmix_CELseq",length(mapping_sce2)),rep("sc_CELseq",length(mapping_sce4)),rep("mRNAmix_SORTseq",length(mapping_sce8)),rep("sc_10X",length(mapping_sce10x)),rep("sc_dolomite",length(mapping_scedrop)) ))
+
+mapping_prop$batch = factor(mapping_prop$batch, levels = c("sc_10X","sc_dolomite","sc_CELseq","mRNAmix_SORTseq","mRNAmix_CELseq","90cellmix_0.7","9cellmix_0.7_3/9","9cellmix_0.7_1/9","9cellmix_0.8_1/9","9cellmix_0.9_1/9"))
+
+p = ggplot(mapping_prop, aes(x=batch, y=before_after_UMI_dedup_ratio,fill=batch))+geom_boxplot()+theme_bw()+theme(axis.text.x = element_text(angle = 45, hjust = 1),text = element_text(size=20))
+pdf("UMI_dedup_batch.pdf",width = 8,height = 4)
+p
+dev.off()
+p
+```
+
+```{r}
+NN84_mRNA_annotation <- read.csv("~/Dropbox/research/benchmark/LT02/NN84_mRNA_annotation_correct.csv", stringsAsFactors=FALSE)
+rownames(NN84_mRNA_annotation) = NN84_mRNA_annotation$cell_name
+colData(sce2_qc) = cbind(colData(sce2_qc), DataFrame(NN84_mRNA_annotation[colnames(sce2_qc),]))
+colData(sce8_qc) = cbind(colData(sce8_qc), DataFrame(NN84_mRNA_annotation[colnames(sce8_qc),]))
+
+sce2_qc = gene_filter(sce2_qc)
+sce8_qc = gene_filter(sce8_qc)
+
+sce10x_qc = gene_filter(sce10x_qc)
+scedrop_qc = gene_filter(scedrop_qc)
+
+save(sce2_qc,sce8_qc,file = "/Users/tian.l/Dropbox/research/benchmark/rdata/mRNAmix_qc.RData")
+save(sce4_qc,sce10x_qc,scedrop_qc,file = "/Users/tian.l/Dropbox/research/benchmark/rdata/singlecell_qc.RData")
+```
+
+
+```{r}
+uni_genes = union(union(union(rownames(sce_SC1), rownames(sce_SC2)), rownames(sce_SC4)),rownames(sce_SC3))
+uni_cells = union(union(union(colnames(sce_SC1), colnames(sce_SC2)), colnames(sce_SC4)),colnames(sce_SC3))
+new_cnt = matrix(0,nrow=length(uni_genes),ncol=length(uni_cells),dimnames = list(uni_genes,uni_cells))
+
+new_cnt[rownames(sce_SC1), colnames(sce_SC1)] = counts(sce_SC1)
+new_cnt[rownames(sce_SC2), colnames(sce_SC2)] = new_cnt[rownames(sce_SC2), colnames(sce_SC2)]+counts(sce_SC2)
+new_cnt[rownames(sce_SC3), colnames(sce_SC3)] = new_cnt[rownames(sce_SC3), colnames(sce_SC3)]+counts(sce_SC3)
+new_cnt[rownames(sce_SC4), colnames(sce_SC4)] = new_cnt[rownames(sce_SC4), colnames(sce_SC4)]+counts(sce_SC4)
+
+new_qc = as.matrix(colData(sce_SC4))
+new_qc = new_qc+as.matrix(colData(sce_SC3)[rownames(new_qc),])
+new_qc = new_qc+as.matrix(colData(sce_SC2)[rownames(new_qc),])
+new_qc = new_qc+as.matrix(colData(sce_SC1)[rownames(new_qc),])
+
+new_qc = DataFrame(new_qc)
+
+
+sce = SingleCellExperiment(assays=list(counts=new_cnt))
+QC_metrics(sce) = new_qc
+
+demultiplex_info(sce) = demultiplex_info(sce_SC4)
+
+isSpike(sce, "ERCC") = grepl("^ERCC-", rownames(sce))
+sce = calculate_QC_metrics(sce)
+
+sce_9cells_qc = sce
+
+
+sce_SC1_qc = add_9cell_anno(sce_SC1_qc)
+sce_SC2_qc = add_9cell_anno(sce_SC2_qc)
+sce_SC3_qc = add_9cell_anno(sce_SC3_qc)
+sce_SC4_qc = add_9cell_anno(sce_SC4_qc)
+sce_POP_sel_qc = add_9cell_anno(sce_POP_sel_qc)
+sce_9cells_qc = add_9cell_anno(sce_9cells_qc)
+
+sce_SC1_qc = gene_filter(sce_SC1_qc)
+sce_SC2_qc = gene_filter(sce_SC2_qc)
+sce_SC3_qc = gene_filter(sce_SC3_qc)
+sce_SC4_qc = gene_filter(sce_SC4_qc)
+sce_9cells_qc = gene_filter(sce_9cells_qc)
+
+
+save(sce_SC1_qc,sce_SC2_qc,sce_SC3_qc,sce_SC4_qc,sce_POP_sel_qc,sce_9cells_qc,file = "/Users/tian.l/Dropbox/research/benchmark/rdata/9cellmix_qc.RData")
+```
+

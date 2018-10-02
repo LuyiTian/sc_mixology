@@ -1,0 +1,917 @@
+---
+title: "plot trajectory results"
+output: html_notebook
+---
+
+```{r}
+library(ggplot2)
+```
+
+```{r}
+method_list = c("SlICER", "DPT", "slingshot","TSCAN","monocle-DDRTree")
+trajectory_result_list = lapply(method_list,function(x){read.csv(paste0("~/Dropbox/research/benchmark/traj_result/trajectory_result_",x,".csv"), stringsAsFactors=FALSE)})
+
+trajectory_result = Reduce(rbind,trajectory_result_list)
+
+tmp = aggregate(corr ~ method, data=trajectory_result,mean)
+
+trajectory_result$method <- factor(trajectory_result$method, levels = tmp$method[order(tmp$corr)])
+```
+
+
+```{r}
+pdf("traj_corr.pdf",width = 6,height = 4)
+ggplot(data=trajectory_result,aes(x=method,y=corr,fill=design))+
+  scale_fill_manual(values = c("#1B9E77","#D95F02"))+
+  geom_boxplot(alpha=0.8)+
+  theme_bw()+
+  labs(x="",y="correlations")+
+  theme(axis.text.x = element_text(angle = 30, hjust = 1),text = element_text(size=20))
+dev.off()
+
+pdf("traj_corr_RNAmix.pdf",width = 8,height = 4)
+ggplot(data=trajectory_result[trajectory_result$design=="RNAmix",],aes(x=method,y=corr,fill=method))+
+  geom_boxplot()+
+  theme_bw()+
+  labs(x="",y="correlations")+
+  theme(axis.text.x = element_text(angle = 30, hjust = 1),text = element_text(size=20))
+dev.off()
+```
+
+```{r}
+pdf("traj_overlap.pdf",width = 6,height = 4)
+ggplot(data=trajectory_result,aes(x=method,y=overlap,fill=design))+
+  scale_fill_manual(values = c("#1B9E77","#D95F02"))+
+  geom_boxplot(alpha=0.8)+
+  theme_bw()+
+  labs(x="")+
+  theme(axis.text.x = element_text(angle = 30, hjust = 1),text = element_text(size=20))
+dev.off()
+
+pdf("traj_overlap_RNAmix.pdf",width = 8,height = 4)
+ggplot(data=trajectory_result[trajectory_result$design=="RNAmix",],aes(x=method,y=overlap,fill=method))+
+  geom_boxplot()+
+  theme_bw()+
+  labs(x="")+
+  theme(axis.text.x = element_text(angle = 30, hjust = 1),text = element_text(size=20))
+dev.off()
+```
+
+# slingshot
+
+```{r}
+library(slingshot)
+library(RColorBrewer)
+load("~/Dropbox/research/benchmark/rdata/9cellmix_qc.RData")
+source('~/Dropbox/research/benchmark/trajectory_code/util_func.R')
+
+sce_SC3_qc = filter_sce_genes(sce_SC3_qc)
+sce_SC3_qc = scran_norm(sce_SC3_qc)
+sce_SC3_qc = prep_traj_order(sce_SC3_qc)
+sce_SC3_qc_traj = sce_SC3_qc[,colData(sce_SC3_qc)$traj =="YES"]
+
+num_k=10
+start_grp="9_0_0"
+high_var_genes = scran_high_var(sce_SC3_qc_traj)
+    sce_de_traj = plotPCA(sce_SC3_qc_traj,return_SCE=T, draw_plot=T, rerun=T,run_args=list(feature_set=high_var_genes))
+    kmeans_clu = kmeans(SingleCellExperiment::reducedDim(sce_de_traj,"PCA"),centers=num_k,iter.max = 10000)
+    colData(sce_de_traj)$kmeans_cluster= as.factor(kmeans_clu$cluster)
+    tmp = table(colData(sce_de_traj)$kmeans_cluster[colData(sce_de_traj)$group==start_grp])  # specify H2228 as root state.
+    tmp = tmp[order(tmp,decreasing = T)]
+  
+    slingshot_lin <- getLineages(SingleCellExperiment::reducedDim(sce_de_traj,"PCA"), colData(sce_de_traj)$kmeans_cluster,start.clus = names(tmp)[1])
+    slingshot_crv <- getCurves(slingshot_lin)
+    slingshot_pseudo <- slingshot::pseudotime(slingshot_crv)
+
+    
+print(plot(SingleCellExperiment::reducedDim(sce_de_traj,"PCA"), col = brewer.pal(num_k,"Set3")[colData(sce_de_traj)$kmeans_cluster], asp = 1, pch = 16))
+print(lines(slingshot_lin, lwd = 3,show.constraints = TRUE))
+pdf("slingshot_9cell_SC3.pdf")
+print(plot(SingleCellExperiment::reducedDim(sce_de_traj,"PCA"), 
+           col = brewer.pal(9,"YlGnBu")[3:8][as.factor(sce_de_traj$H2228)], 
+           asp = 1, pch = 16,xaxt = "n",yaxt = "n"))
+print(lines(slingshot_crv, lwd = 3))
+dev.off()
+
+########
+
+sce_SC1_qc = filter_sce_genes(sce_SC1_qc)
+sce_SC1_qc = scran_norm(sce_SC1_qc)
+sce_SC1_qc = prep_traj_order(sce_SC1_qc)
+sce_SC1_qc_traj = sce_SC1_qc[,colData(sce_SC1_qc)$traj =="YES"]
+
+num_k=10
+start_grp="9_0_0"
+high_var_genes = scran_high_var(sce_SC1_qc_traj)
+    sce_de_traj = plotPCA(sce_SC1_qc_traj,return_SCE=T, draw_plot=T, rerun=T,run_args=list(feature_set=high_var_genes))
+    kmeans_clu = kmeans(SingleCellExperiment::reducedDim(sce_de_traj,"PCA"),centers=num_k,iter.max = 10000)
+    colData(sce_de_traj)$kmeans_cluster= as.factor(kmeans_clu$cluster)
+    tmp = table(colData(sce_de_traj)$kmeans_cluster[colData(sce_de_traj)$group==start_grp])  # specify H2228 as root state.
+    tmp = tmp[order(tmp,decreasing = T)]
+  
+    slingshot_lin <- getLineages(SingleCellExperiment::reducedDim(sce_de_traj,"PCA"), colData(sce_de_traj)$kmeans_cluster,start.clus = names(tmp)[1])
+    slingshot_crv <- getCurves(slingshot_lin)
+    slingshot_pseudo <- slingshot::pseudotime(slingshot_crv)
+
+    
+print(plot(SingleCellExperiment::reducedDim(sce_de_traj,"PCA"), col = brewer.pal(num_k,"Set3")[colData(sce_de_traj)$kmeans_cluster], asp = 1, pch = 16))
+print(lines(slingshot_lin, lwd = 3,show.constraints = TRUE))
+pdf("slingshot_9cell_SC1.pdf")
+print(plot(SingleCellExperiment::reducedDim(sce_de_traj,"PCA"), 
+           col = brewer.pal(9,"YlGnBu")[3:8][as.factor(sce_de_traj$H2228)], 
+           asp = 1, pch = 16,xaxt = "n",yaxt = "n"))
+print(lines(slingshot_crv, lwd = 3))
+dev.off()
+
+
+########
+
+sce_SC2_qc = filter_sce_genes(sce_SC2_qc)
+sce_SC2_qc = scran_norm(sce_SC2_qc)
+sce_SC2_qc = prep_traj_order(sce_SC2_qc)
+sce_SC2_qc_traj = sce_SC2_qc[,colData(sce_SC2_qc)$traj =="YES"]
+
+num_k=10
+start_grp="9_0_0"
+high_var_genes = scran_high_var(sce_SC2_qc_traj)
+    sce_de_traj = plotPCA(sce_SC2_qc_traj,return_SCE=T, draw_plot=T, rerun=T,run_args=list(feature_set=high_var_genes))
+    kmeans_clu = kmeans(SingleCellExperiment::reducedDim(sce_de_traj,"PCA"),centers=num_k,iter.max = 10000)
+    colData(sce_de_traj)$kmeans_cluster= as.factor(kmeans_clu$cluster)
+    tmp = table(colData(sce_de_traj)$kmeans_cluster[colData(sce_de_traj)$group==start_grp])  # specify H2228 as root state.
+    tmp = tmp[order(tmp,decreasing = T)]
+  
+    slingshot_lin <- getLineages(SingleCellExperiment::reducedDim(sce_de_traj,"PCA"), colData(sce_de_traj)$kmeans_cluster,start.clus = names(tmp)[1])
+    slingshot_crv <- getCurves(slingshot_lin)
+    slingshot_pseudo <- slingshot::pseudotime(slingshot_crv)
+
+    
+print(plot(SingleCellExperiment::reducedDim(sce_de_traj,"PCA"), col = brewer.pal(num_k,"Set3")[colData(sce_de_traj)$kmeans_cluster], asp = 1, pch = 16))
+print(lines(slingshot_lin, lwd = 3,show.constraints = TRUE))
+pdf("slingshot_9cell_SC2.pdf")
+print(plot(SingleCellExperiment::reducedDim(sce_de_traj,"PCA"), 
+           col = brewer.pal(9,"YlGnBu")[3:8][as.factor(sce_de_traj$H2228)], 
+           asp = 1, pch = 16,xaxt = "n",yaxt = "n"))
+print(lines(slingshot_crv, lwd = 3))
+dev.off()
+
+#########
+
+sce_SC4_qc = filter_sce_genes(sce_SC4_qc)
+sce_SC4_qc = scran_norm(sce_SC4_qc)
+sce_SC4_qc = prep_traj_order(sce_SC4_qc)
+sce_SC4_qc_traj = sce_SC4_qc[,colData(sce_SC4_qc)$traj =="YES"]
+
+num_k=10
+start_grp="9_0_0"
+high_var_genes = scran_high_var(sce_SC4_qc_traj)
+    sce_de_traj = plotPCA(sce_SC4_qc_traj,return_SCE=T, draw_plot=T, rerun=T,run_args=list(feature_set=high_var_genes))
+    kmeans_clu = kmeans(SingleCellExperiment::reducedDim(sce_de_traj,"PCA"),centers=num_k,iter.max = 10000)
+    colData(sce_de_traj)$kmeans_cluster= as.factor(kmeans_clu$cluster)
+    tmp = table(colData(sce_de_traj)$kmeans_cluster[colData(sce_de_traj)$group==start_grp])  # specify H2228 as root state.
+    tmp = tmp[order(tmp,decreasing = T)]
+  
+    slingshot_lin <- getLineages(SingleCellExperiment::reducedDim(sce_de_traj,"PCA"), colData(sce_de_traj)$kmeans_cluster,start.clus = names(tmp)[1])
+    slingshot_crv <- getCurves(slingshot_lin)
+    slingshot_pseudo <- slingshot::pseudotime(slingshot_crv)
+
+    
+print(plot(SingleCellExperiment::reducedDim(sce_de_traj,"PCA"), col = brewer.pal(num_k,"Set3")[colData(sce_de_traj)$kmeans_cluster], asp = 1, pch = 16))
+print(lines(slingshot_lin, lwd = 3,show.constraints = TRUE))
+pdf("slingshot_9cell_SC4.pdf")
+print(plot(SingleCellExperiment::reducedDim(sce_de_traj,"PCA"), 
+           col = brewer.pal(9,"YlGnBu")[3:8][as.factor(sce_de_traj$H2228)], 
+           asp = 1, pch = 16,xaxt = "n",yaxt = "n"))
+print(lines(slingshot_crv, lwd = 3))
+dev.off()
+```
+
+```{r}
+load("~/Dropbox/research/benchmark/rdata/mRNAmix_qc.RData")
+
+sce2_qc = filter_sce_genes(sce2_qc)
+sce2_qc = scran_norm(sce2_qc)
+sce2_qc = prep_RNA_traj_order(sce2_qc)
+
+num_k=7
+start_grp="1_0_0"
+high_var_genes = scran_high_var(sce2_qc)
+    sce_de_traj = plotPCA(sce2_qc,return_SCE=T, draw_plot=T, rerun=T,run_args=list(feature_set=high_var_genes))
+    kmeans_clu = kmeans(SingleCellExperiment::reducedDim(sce_de_traj,"PCA"),centers=num_k,iter.max = 10000)
+    colData(sce_de_traj)$kmeans_cluster= as.factor(kmeans_clu$cluster)
+    tmp = table(colData(sce_de_traj)$kmeans_cluster[colData(sce_de_traj)$group==start_grp])  # specify H2228 as root state.
+    tmp = tmp[order(tmp,decreasing = T)]
+  
+    slingshot_lin <- getLineages(SingleCellExperiment::reducedDim(sce_de_traj,"PCA"), colData(sce_de_traj)$kmeans_cluster,start.clus = names(tmp)[1])
+    slingshot_crv <- getCurves(slingshot_lin)
+    slingshot_pseudo <- pseudotime(slingshot_crv)
+
+    
+print(plot(SingleCellExperiment::reducedDim(sce_de_traj,"PCA"), col = brewer.pal(num_k,"Set3")[colData(sce_de_traj)$kmeans_cluster], asp = 1, pch = 16))
+print(lines(slingshot_lin, lwd = 3,show.constraints = TRUE))
+pdf("slingshot_RNAmix_cel-seq2.pdf")
+print(plot(SingleCellExperiment::reducedDim(sce_de_traj,"PCA"), 
+           col = brewer.pal(9,"YlGnBu")[3:8][as.factor(sce_de_traj$H2228_prop)], 
+           asp = 1, pch = 16,xaxt = "n",yaxt = "n"))
+print(lines(slingshot_crv, lwd = 3))
+dev.off()
+
+#####
+
+sce8_qc = filter_sce_genes(sce8_qc)
+sce8_qc = scran_norm(sce8_qc)
+sce8_qc = prep_RNA_traj_order(sce8_qc)
+
+num_k=7
+start_grp="1_0_0"
+high_var_genes = scran_high_var(sce8_qc)
+    sce_de_traj = plotPCA(sce8_qc,return_SCE=T, draw_plot=T, rerun=T,run_args=list(feature_set=high_var_genes),ncomponents = 3)
+    kmeans_clu = kmeans(SingleCellExperiment::reducedDim(sce_de_traj,"PCA")[,c(1,3)],centers=num_k,iter.max = 10000)
+    colData(sce_de_traj)$kmeans_cluster= as.factor(kmeans_clu$cluster)
+    tmp = table(colData(sce_de_traj)$kmeans_cluster[colData(sce_de_traj)$group==start_grp])  # specify H2228 as root state.
+    tmp = tmp[order(tmp,decreasing = T)]
+  
+    slingshot_lin <- getLineages(SingleCellExperiment::reducedDim(sce_de_traj,"PCA")[,c(1,3)], colData(sce_de_traj)$kmeans_cluster,start.clus = names(tmp)[1])
+    slingshot_crv <- getCurves(slingshot_lin)
+    slingshot_pseudo <- pseudotime(slingshot_crv)
+
+    
+print(plot(SingleCellExperiment::reducedDim(sce_de_traj,"PCA")[,c(1,3)], col = brewer.pal(num_k,"Set3")[colData(sce_de_traj)$kmeans_cluster], asp = 1, pch = 16))
+print(lines(slingshot_lin, lwd = 3,show.constraints = TRUE))
+pdf("slingshot_RNAmix_sort-seq.pdf")
+print(plot(SingleCellExperiment::reducedDim(sce_de_traj,"PCA")[,c(1,3)], 
+           col = brewer.pal(9,"YlGnBu")[3:8][as.factor(sce_de_traj$H2228_prop)], 
+           asp = 1, pch = 16,xaxt = "n",yaxt = "n"))
+print(lines(slingshot_crv, lwd = 3))
+dev.off()
+```
+
+# monocle
+
+```{r}
+library(monocle)
+library(dplyr)
+dr_method = "DDRTree"
+pd <- new("AnnotatedDataFrame", data = as.data.frame(colData(sce_SC3_qc_traj)))
+cds <- newCellDataSet(counts(sce_SC3_qc_traj), phenoData = pd,expressionFamily=negbinomial.size())
+cds <- estimateSizeFactors(cds)
+cds <- estimateDispersions(cds)
+  
+cds = setOrderingFilter(cds, ordering_genes = scran_high_var(sce_SC3_qc_traj))
+cds = reduceDimension(cds, method = dr_method)
+cds = orderCells(cds)
+#pdf("monocle2_9cell_SC3.pdf")
+#plot_cell_trajectory(cds, color_by = "State")
+#dev.off()
+
+
+reduced_dim_coords <- as.data.frame(t(monocle::reducedDimS(cds)))
+colnames(reduced_dim_coords) = c("Dim1","Dim2")
+
+ica_space_df <- Matrix::t(monocle::reducedDimK(cds)) %>%
+    as.data.frame() %>%
+    mutate(sample_name = rownames(.), sample_state = rownames(.))
+
+colnames(ica_space_df) = c("prin_graph_dim_1","prin_graph_dim_2","sample_name","sample_state")
+dp_mst <- minSpanningTree(cds)
+  edge_df <- dp_mst %>%
+    igraph::as_data_frame() %>%
+    select_(source = "from", target = "to") %>%
+    left_join(ica_space_df %>% select_(source="sample_name", source_prin_graph_dim_1="prin_graph_dim_1", source_prin_graph_dim_2="prin_graph_dim_2"), by = "source") %>%
+    left_join(ica_space_df %>% select_(target="sample_name", target_prin_graph_dim_1="prin_graph_dim_1", target_prin_graph_dim_2="prin_graph_dim_2"), by = "target")
+ 
+
+p_monocle1 = ggplot()+
+  geom_point(data=reduced_dim_coords,aes(x=Dim1,y=Dim2,col=factor(sce_SC3_qc_traj$H2228)),show.legend = F,size=3)+
+  scale_color_manual(values=brewer.pal(9,"YlGnBu")[2:8])+
+  geom_segment(aes_string(x="source_prin_graph_dim_1", y="source_prin_graph_dim_2", xend="target_prin_graph_dim_1", yend="target_prin_graph_dim_2"), linetype="solid", na.rm=TRUE, data=edge_df)+
+  theme(text = element_text(size=20),panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(), axis.line = element_line(colour = "black"),
+axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+
+pdf("monocle_9cell_SC3.pdf")
+p_monocle1
+dev.off()
+p_monocle1
+
+
+#######
+
+dr_method = "DDRTree"
+pd <- new("AnnotatedDataFrame", data = as.data.frame(colData(sce_SC1_qc_traj)))
+cds <- newCellDataSet(counts(sce_SC1_qc_traj), phenoData = pd,expressionFamily=negbinomial.size())
+cds <- estimateSizeFactors(cds)
+cds <- estimateDispersions(cds)
+  
+cds = setOrderingFilter(cds, ordering_genes = scran_high_var(sce_SC1_qc_traj))
+cds = reduceDimension(cds, method = dr_method)
+cds = orderCells(cds)
+#pdf("monocle2_9cell_SC1.pdf")
+#plot_cell_trajectory(cds, color_by = "State")
+#dev.off()
+
+
+reduced_dim_coords <- as.data.frame(t(monocle::reducedDimS(cds)))
+colnames(reduced_dim_coords) = c("Dim1","Dim2")
+
+ica_space_df <- Matrix::t(monocle::reducedDimK(cds)) %>%
+    as.data.frame() %>%
+    mutate(sample_name = rownames(.), sample_state = rownames(.))
+
+colnames(ica_space_df) = c("prin_graph_dim_1","prin_graph_dim_2","sample_name","sample_state")
+dp_mst <- minSpanningTree(cds)
+  edge_df <- dp_mst %>%
+    igraph::as_data_frame() %>%
+    select_(source = "from", target = "to") %>%
+    left_join(ica_space_df %>% select_(source="sample_name", source_prin_graph_dim_1="prin_graph_dim_1", source_prin_graph_dim_2="prin_graph_dim_2"), by = "source") %>%
+    left_join(ica_space_df %>% select_(target="sample_name", target_prin_graph_dim_1="prin_graph_dim_1", target_prin_graph_dim_2="prin_graph_dim_2"), by = "target")
+ 
+
+p_monocle1 = ggplot()+
+  geom_point(data=reduced_dim_coords,aes(x=Dim1,y=Dim2,col=factor(sce_SC1_qc_traj$H2228)),show.legend = F,size=3)+
+  scale_color_manual(values=brewer.pal(9,"YlGnBu")[2:8])+
+  geom_segment(aes_string(x="source_prin_graph_dim_1", y="source_prin_graph_dim_2", xend="target_prin_graph_dim_1", yend="target_prin_graph_dim_2"), linetype="solid", na.rm=TRUE, data=edge_df)+
+  theme(text = element_text(size=20),panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(), axis.line = element_line(colour = "black"),
+axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+
+pdf("monocle_9cell_SC1.pdf")
+p_monocle1
+dev.off()
+p_monocle1
+
+######
+
+
+dr_method = "DDRTree"
+pd <- new("AnnotatedDataFrame", data = as.data.frame(colData(sce_SC2_qc_traj)))
+cds <- newCellDataSet(counts(sce_SC2_qc_traj), phenoData = pd,expressionFamily=negbinomial.size())
+cds <- estimateSizeFactors(cds)
+cds <- estimateDispersions(cds)
+  
+cds = setOrderingFilter(cds, ordering_genes = scran_high_var(sce_SC2_qc_traj))
+cds = reduceDimension(cds, method = dr_method)
+cds = orderCells(cds)
+#pdf("monocle2_9cell_SC2.pdf")
+#plot_cell_trajectory(cds, color_by = "State")
+#dev.off()
+
+
+reduced_dim_coords <- as.data.frame(t(monocle::reducedDimS(cds)))
+colnames(reduced_dim_coords) = c("Dim1","Dim2")
+
+ica_space_df <- Matrix::t(monocle::reducedDimK(cds)) %>%
+    as.data.frame() %>%
+    mutate(sample_name = rownames(.), sample_state = rownames(.))
+
+colnames(ica_space_df) = c("prin_graph_dim_1","prin_graph_dim_2","sample_name","sample_state")
+dp_mst <- minSpanningTree(cds)
+  edge_df <- dp_mst %>%
+    igraph::as_data_frame() %>%
+    select_(source = "from", target = "to") %>%
+    left_join(ica_space_df %>% select_(source="sample_name", source_prin_graph_dim_1="prin_graph_dim_1", source_prin_graph_dim_2="prin_graph_dim_2"), by = "source") %>%
+    left_join(ica_space_df %>% select_(target="sample_name", target_prin_graph_dim_1="prin_graph_dim_1", target_prin_graph_dim_2="prin_graph_dim_2"), by = "target")
+ 
+
+p_monocle1 = ggplot()+
+  geom_point(data=reduced_dim_coords,aes(x=Dim1,y=Dim2,col=factor(sce_SC2_qc_traj$H2228)),show.legend = F,size=3)+
+  scale_color_manual(values=brewer.pal(9,"YlGnBu")[2:8])+
+  geom_segment(aes_string(x="source_prin_graph_dim_1", y="source_prin_graph_dim_2", xend="target_prin_graph_dim_1", yend="target_prin_graph_dim_2"), linetype="solid", na.rm=TRUE, data=edge_df)+
+  theme(text = element_text(size=20),panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(), axis.line = element_line(colour = "black"),
+axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+
+pdf("monocle_9cell_SC2.pdf")
+p_monocle1
+dev.off()
+p_monocle1
+
+
+######
+
+
+dr_method = "DDRTree"
+pd <- new("AnnotatedDataFrame", data = as.data.frame(colData(sce_SC4_qc_traj)))
+cds <- newCellDataSet(counts(sce_SC4_qc_traj), phenoData = pd,expressionFamily=negbinomial.size())
+cds <- estimateSizeFactors(cds)
+cds <- estimateDispersions(cds)
+  
+cds = setOrderingFilter(cds, ordering_genes = scran_high_var(sce_SC4_qc_traj))
+cds = reduceDimension(cds, method = dr_method)
+cds = orderCells(cds)
+#pdf("monocle2_9cell_SC4.pdf")
+#plot_cell_trajectory(cds, color_by = "State")
+#dev.off()
+
+
+reduced_dim_coords <- as.data.frame(t(monocle::reducedDimS(cds)))
+colnames(reduced_dim_coords) = c("Dim1","Dim2")
+
+ica_space_df <- Matrix::t(monocle::reducedDimK(cds)) %>%
+    as.data.frame() %>%
+    mutate(sample_name = rownames(.), sample_state = rownames(.))
+
+colnames(ica_space_df) = c("prin_graph_dim_1","prin_graph_dim_2","sample_name","sample_state")
+dp_mst <- minSpanningTree(cds)
+  edge_df <- dp_mst %>%
+    igraph::as_data_frame() %>%
+    select_(source = "from", target = "to") %>%
+    left_join(ica_space_df %>% select_(source="sample_name", source_prin_graph_dim_1="prin_graph_dim_1", source_prin_graph_dim_2="prin_graph_dim_2"), by = "source") %>%
+    left_join(ica_space_df %>% select_(target="sample_name", target_prin_graph_dim_1="prin_graph_dim_1", target_prin_graph_dim_2="prin_graph_dim_2"), by = "target")
+ 
+
+p_monocle1 = ggplot()+
+  geom_point(data=reduced_dim_coords,aes(x=Dim1,y=Dim2,col=factor(sce_SC4_qc_traj$H2228)),show.legend = F,size=3)+
+  scale_color_manual(values=brewer.pal(9,"YlGnBu")[2:8])+
+  geom_segment(aes_string(x="source_prin_graph_dim_1", y="source_prin_graph_dim_2", xend="target_prin_graph_dim_1", yend="target_prin_graph_dim_2"), linetype="solid", na.rm=TRUE, data=edge_df)+
+  theme(text = element_text(size=20),panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(), axis.line = element_line(colour = "black"),
+axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+
+pdf("monocle_9cell_SC4.pdf")
+p_monocle1
+dev.off()
+p_monocle1
+```
+
+
+```{r}
+dr_method = "DDRTree"
+pd <- new("AnnotatedDataFrame", data = as.data.frame(colData(sce2_qc)))
+cds <- newCellDataSet(counts(sce2_qc), phenoData = pd,expressionFamily=negbinomial.size())
+cds <- estimateSizeFactors(cds)
+cds <- estimateDispersions(cds)
+  
+cds = setOrderingFilter(cds, ordering_genes = scran_high_var(sce2_qc))
+cds = reduceDimension(cds, method = dr_method)
+cds = orderCells(cds)
+#pdf("monocle2_RNAmix_cel-seq2.pdf")
+#plot_cell_trajectory(cds, color_by = "State")
+#dev.off()
+
+
+reduced_dim_coords <- as.data.frame(t(monocle::reducedDimS(cds)))
+colnames(reduced_dim_coords) = c("Dim1","Dim2")
+
+ica_space_df <- Matrix::t(monocle::reducedDimK(cds)) %>%
+    as.data.frame() %>%
+    mutate(sample_name = rownames(.), sample_state = rownames(.))
+
+colnames(ica_space_df) = c("prin_graph_dim_1","prin_graph_dim_2","sample_name","sample_state")
+dp_mst <- minSpanningTree(cds)
+  edge_df <- dp_mst %>%
+    igraph::as_data_frame() %>%
+    select_(source = "from", target = "to") %>%
+    left_join(ica_space_df %>% select_(source="sample_name", source_prin_graph_dim_1="prin_graph_dim_1", source_prin_graph_dim_2="prin_graph_dim_2"), by = "source") %>%
+    left_join(ica_space_df %>% select_(target="sample_name", target_prin_graph_dim_1="prin_graph_dim_1", target_prin_graph_dim_2="prin_graph_dim_2"), by = "target")
+ 
+
+p_monocle2 = ggplot()+
+  geom_point(data=reduced_dim_coords,aes(x=Dim1,y=Dim2,col=factor(sce2_qc$H2228_prop)),show.legend = F,size=3)+
+  scale_color_manual(values=brewer.pal(9,"YlGnBu")[3:8])+
+  geom_segment(aes_string(x="source_prin_graph_dim_1", y="source_prin_graph_dim_2", xend="target_prin_graph_dim_1", yend="target_prin_graph_dim_2"), linetype="solid", na.rm=TRUE, data=edge_df)+
+  theme(text = element_text(size=20),panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(), axis.line = element_line(colour = "black"),
+axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+
+pdf("monocle_RNAmix_cel-seq2.pdf")
+p_monocle2
+dev.off()
+p_monocle2
+
+
+dr_method = "DDRTree"
+pd <- new("AnnotatedDataFrame", data = as.data.frame(colData(sce8_qc)))
+cds <- newCellDataSet(counts(sce8_qc), phenoData = pd,expressionFamily=negbinomial.size())
+cds <- estimateSizeFactors(cds)
+cds <- estimateDispersions(cds)
+  
+cds = setOrderingFilter(cds, ordering_genes = scran_high_var(sce8_qc))
+cds = reduceDimension(cds, method = dr_method)
+cds = orderCells(cds)
+#pdf("monocle2_RNAmix_cel-seq2.pdf")
+#plot_cell_trajectory(cds, color_by = "State")
+#dev.off()
+
+
+reduced_dim_coords <- as.data.frame(t(monocle::reducedDimS(cds)))
+colnames(reduced_dim_coords) = c("Dim1","Dim2")
+
+ica_space_df <- Matrix::t(monocle::reducedDimK(cds)) %>%
+    as.data.frame() %>%
+    mutate(sample_name = rownames(.), sample_state = rownames(.))
+
+colnames(ica_space_df) = c("prin_graph_dim_1","prin_graph_dim_2","sample_name","sample_state")
+dp_mst <- minSpanningTree(cds)
+  edge_df <- dp_mst %>%
+    igraph::as_data_frame() %>%
+    select_(source = "from", target = "to") %>%
+    left_join(ica_space_df %>% select_(source="sample_name", source_prin_graph_dim_1="prin_graph_dim_1", source_prin_graph_dim_2="prin_graph_dim_2"), by = "source") %>%
+    left_join(ica_space_df %>% select_(target="sample_name", target_prin_graph_dim_1="prin_graph_dim_1", target_prin_graph_dim_2="prin_graph_dim_2"), by = "target")
+ 
+
+p_monocle2 = ggplot()+
+  geom_point(data=reduced_dim_coords,aes(x=Dim1,y=Dim2,col=factor(sce8_qc$H2228_prop)),show.legend = F,size=3)+
+  scale_color_manual(values=brewer.pal(9,"YlGnBu")[3:8])+
+  geom_segment(aes_string(x="source_prin_graph_dim_1", y="source_prin_graph_dim_2", xend="target_prin_graph_dim_1", yend="target_prin_graph_dim_2"), linetype="solid", na.rm=TRUE, data=edge_df)+
+  theme(text = element_text(size=20),panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(), axis.line = element_line(colour = "black"),
+axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+
+pdf("monocle_RNAmix_Sort-seq.pdf")
+p_monocle2
+dev.off()
+p_monocle2
+```
+
+
+```{r}
+library(SLICER)
+library(lle)
+high_var_genes = scran_high_var(sce_SC3_qc_traj)
+#genes = select_genes(traj)
+k = select_k(t(logcounts(sce_SC3_qc_traj[high_var_genes,])), kmin=2)
+traj_lle = lle(t(logcounts(sce_SC3_qc_traj[high_var_genes,])), m=2, k=k)$Y
+traj_graph = conn_knn_graph(traj_lle,5)
+#ends = find_extreme_cells(traj_graph, traj_lle)
+#start = 106
+#cells_ordered = cell_order(traj_graph, start)
+#branches = assign_branches(traj_graph,start)
+
+pdf("SLICER_9cell_SC3.pdf")
+ggplot(data=NULL,aes(x=traj_lle[,1],y=traj_lle[,2],col=factor(sce_SC3_qc_traj$H2228)))+
+  geom_point(show.legend = F,size=3)+
+  scale_color_manual(values=brewer.pal(9,"YlGnBu")[2:8])+
+  labs(x="Dim1",y="Dim2")+
+theme(text = element_text(size=20),panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(), axis.line = element_line(colour = "black"),
+axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+dev.off()
+```
+
+
+```{r}
+high_var_genes = scran_high_var(sce_SC1_qc_traj)
+#genes = select_genes(traj)
+k = select_k(t(logcounts(sce_SC1_qc_traj[high_var_genes,])), kmin=2)
+traj_lle = lle(t(logcounts(sce_SC1_qc_traj[high_var_genes,])), m=2, k=k)$Y
+traj_graph = conn_knn_graph(traj_lle,5)
+#ends = find_extreme_cells(traj_graph, traj_lle)
+#start_grp="9_0_0"
+#H2228_st = which(colData(sce_SC1_qc_traj)$group == start_grp)[1]
+#cells_ordered = cell_order(traj_graph, H2228_st)
+#branches = assign_branches(traj_graph,H2228_st)
+
+pdf("SLICER_9cell_SC1.pdf")
+ggplot(data=NULL,aes(x=traj_lle[,1],y=traj_lle[,2],col=factor(sce_SC1_qc_traj$H2228)))+
+  geom_point(show.legend = F,size=3)+
+  scale_color_manual(values=brewer.pal(9,"YlGnBu")[2:8])+
+  labs(x="Dim1",y="Dim2")+
+theme(text = element_text(size=20),panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(), axis.line = element_line(colour = "black"),
+axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+dev.off()
+```
+
+
+```{r}
+high_var_genes = scran_high_var(sce_SC2_qc_traj)
+#genes = select_genes(traj)
+k = select_k(t(logcounts(sce_SC2_qc_traj[high_var_genes,])), kmin=2)
+traj_lle = lle(t(logcounts(sce_SC2_qc_traj[high_var_genes,])), m=2, k=k)$Y
+#traj_graph = conn_knn_graph(traj_lle,5)
+#ends = find_extreme_cells(traj_graph, traj_lle)
+#start_grp="9_0_0"
+#H2228_st = which(colData(sce_SC2_qc_traj)$group == start_grp)[1]
+#cells_ordered = cell_order(traj_graph, H2228_st)
+#branches = assign_branches(traj_graph,H2228_st)
+
+pdf("SLICER_9cell_SC2.pdf")
+ggplot(data=NULL,aes(x=traj_lle[,1],y=traj_lle[,2],col=factor(sce_SC2_qc_traj$H2228)))+
+  geom_point(show.legend = F,size=3)+
+  scale_color_manual(values=brewer.pal(9,"YlGnBu")[2:8])+
+  labs(x="Dim1",y="Dim2")+
+theme(text = element_text(size=20),panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(), axis.line = element_line(colour = "black"),
+axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+dev.off()
+```
+
+```{r}
+high_var_genes = scran_high_var(sce_SC4_qc_traj)
+#genes = select_genes(traj)
+k = select_k(t(logcounts(sce_SC4_qc_traj[high_var_genes,])), kmin=2)
+traj_lle = lle(t(logcounts(sce_SC4_qc_traj[high_var_genes,])), m=2, k=k)$Y
+#traj_graph = conn_knn_graph(traj_lle,5)
+#ends = find_extreme_cells(traj_graph, traj_lle)
+#start_grp="9_0_0"
+#H2228_st = which(colData(sce_SC2_qc_traj)$group == start_grp)[1]
+#cells_ordered = cell_order(traj_graph, H2228_st)
+#branches = assign_branches(traj_graph,H2228_st)
+
+pdf("SLICER_9cell_SC4.pdf")
+ggplot(data=NULL,aes(x=traj_lle[,1],y=traj_lle[,2],col=factor(sce_SC4_qc_traj$H2228)))+
+  geom_point(show.legend = F,size=3)+
+  scale_color_manual(values=brewer.pal(9,"YlGnBu")[2:8])+
+  labs(x="Dim1",y="Dim2")+
+theme(text = element_text(size=20),panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(), axis.line = element_line(colour = "black"),
+axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+dev.off()
+```
+
+
+
+```{r}
+
+high_var_genes = scran_high_var(sce2_qc)
+#genes = select_genes(traj)
+k = select_k(t(logcounts(sce2_qc[high_var_genes,])), kmin=2)
+traj_lle = lle(t(logcounts(sce2_qc[high_var_genes,])), m=2, k=k)$Y
+traj_graph = conn_knn_graph(traj_lle,5)
+ends = find_extreme_cells(traj_graph, traj_lle)
+start = 100
+cells_ordered = cell_order(traj_graph, start)
+branches = assign_branches(traj_graph,start)
+
+pdf("SLICER_RNAmix_cel-seq2.pdf")
+ggplot(data=NULL,aes(x=traj_lle[,1],y=traj_lle[,2],col=factor(sce2_qc$H2228_prop)))+
+  geom_point(show.legend = F,size=3)+
+  scale_color_manual(values=brewer.pal(9,"YlGnBu")[3:8])+
+  labs(x="Dim1",y="Dim2")+
+theme(text = element_text(size=20),panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(), axis.line = element_line(colour = "black"),
+axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+dev.off()
+```
+
+
+```{r}
+high_var_genes = scran_high_var(sce8_qc)
+#genes = select_genes(traj)
+k = select_k(t(logcounts(sce8_qc[high_var_genes,])), kmin=2)
+traj_lle = lle(t(logcounts(sce8_qc[high_var_genes,])), m=2, k=k)$Y
+traj_graph = conn_knn_graph(traj_lle,5)
+#ends = find_extreme_cells(traj_graph, traj_lle)
+#start = 100
+#cells_ordered = cell_order(traj_graph, start)
+#branches = assign_branches(traj_graph,start)
+
+pdf("SLICER_RNAmix_sort-seq.pdf")
+ggplot(data=NULL,aes(x=traj_lle[,1],y=traj_lle[,2],col=factor(sce8_qc$H2228_prop)))+
+  geom_point(show.legend = F,size=3)+
+  scale_color_manual(values=brewer.pal(9,"YlGnBu")[3:8])+
+  labs(x="Dim1",y="Dim2")+
+theme(text = element_text(size=20),panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(), axis.line = element_line(colour = "black"),
+axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+dev.off()
+```
+
+# TSCAN
+
+```{r}
+library(TSCAN)
+high_var_genes = scran_high_var(sce8_qc)
+lpsmclust = exprmclust(logcounts(sce8_qc)[high_var_genes,],
+                       clusternum = 10)
+clucenter <- lpsmclust$clucenter[,c(1,3)]
+clulines <- NULL
+alledges <- as.data.frame(get.edgelist(lpsmclust$MSTtree),stringsAsFactors=F)
+alledges[,1] <- as.numeric(alledges[,1])
+alledges[,2] <- as.numeric(alledges[,2])
+for (i in 1:nrow(alledges)) {
+      clulines <- rbind(clulines, c(clucenter[alledges[i,1],],clucenter[alledges[i,2],]))
+}
+
+clulines <- data.frame(x=clulines[,1],xend=clulines[,3],y=clulines[,2],yend=clulines[,4])
+clucenter <- data.frame(x=clucenter[,1],y=clucenter[,2],id=1:nrow(clucenter))
+            
+p_p = ggplot()+
+  geom_point(data=NULL,aes(x=lpsmclust$pcareduceres[,1],y=lpsmclust$pcareduceres[,3],col=factor(sce8_qc$H2228_prop)),show.legend = F,size=3)+
+  scale_color_manual(values=brewer.pal(9,"YlGnBu")[3:8])+
+  labs(x="Dim1",y="Dim2")+
+  geom_segment(aes_string(x="x",xend="xend",y="y",yend="yend",size=NULL),data=clulines,size=1)+
+  geom_text(aes_string(label="id",x="x",y="y",size=NULL),data=clucenter,size=10)+
+  theme(text = element_text(size=20),panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(), axis.line = element_line(colour = "black"),
+axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+
+pdf("TSCAN_RNAmix_Sort-seq.pdf")
+p_p
+dev.off()
+
+p_p
+
+```
+
+
+```{r}
+high_var_genes = scran_high_var(sce_SC1_qc_traj)
+lpsmclust = exprmclust(logcounts(sce_SC1_qc_traj)[high_var_genes,],
+                       clusternum = 10)
+clucenter <- lpsmclust$clucenter[,c(1,2)]
+clulines <- NULL
+alledges <- as.data.frame(get.edgelist(lpsmclust$MSTtree),stringsAsFactors=F)
+alledges[,1] <- as.numeric(alledges[,1])
+alledges[,2] <- as.numeric(alledges[,2])
+for (i in 1:nrow(alledges)) {
+      clulines <- rbind(clulines, c(clucenter[alledges[i,1],],clucenter[alledges[i,2],]))
+}
+
+clulines <- data.frame(x=clulines[,1],xend=clulines[,3],y=clulines[,2],yend=clulines[,4])
+clucenter <- data.frame(x=clucenter[,1],y=clucenter[,2],id=1:nrow(clucenter))
+            
+p_p = ggplot()+
+  geom_point(data=NULL,aes(x=lpsmclust$pcareduceres[,1],y=lpsmclust$pcareduceres[,2],col=factor(sce_SC1_qc_traj$H2228)),show.legend = F,size=3)+
+  scale_color_manual(values=brewer.pal(9,"YlGnBu")[2:8])+
+  labs(x="Dim1",y="Dim2")+
+  geom_segment(aes_string(x="x",xend="xend",y="y",yend="yend",size=NULL),data=clulines,size=1)+
+  geom_text(aes_string(label="id",x="x",y="y",size=NULL),data=clucenter,size=10)+
+  theme(text = element_text(size=20),panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(), axis.line = element_line(colour = "black"),
+axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+
+pdf("TSCAN_9cell_SC1.pdf")
+p_p
+dev.off()
+
+p_p
+
+```
+
+```{r}
+high_var_genes = scran_high_var(sce_SC2_qc_traj)
+lpsmclust = exprmclust(logcounts(sce_SC2_qc_traj)[high_var_genes,],
+                       clusternum = 10)
+clucenter <- lpsmclust$clucenter[,c(1,2)]
+clulines <- NULL
+alledges <- as.data.frame(get.edgelist(lpsmclust$MSTtree),stringsAsFactors=F)
+alledges[,1] <- as.numeric(alledges[,1])
+alledges[,2] <- as.numeric(alledges[,2])
+for (i in 1:nrow(alledges)) {
+      clulines <- rbind(clulines, c(clucenter[alledges[i,1],],clucenter[alledges[i,2],]))
+}
+
+clulines <- data.frame(x=clulines[,1],xend=clulines[,3],y=clulines[,2],yend=clulines[,4])
+clucenter <- data.frame(x=clucenter[,1],y=clucenter[,2],id=1:nrow(clucenter))
+            
+p_p = ggplot()+
+  geom_point(data=NULL,aes(x=lpsmclust$pcareduceres[,1],y=lpsmclust$pcareduceres[,2],col=factor(sce_SC2_qc_traj$H2228)),show.legend = F,size=3)+
+  scale_color_manual(values=brewer.pal(9,"YlGnBu")[2:8])+
+  labs(x="Dim1",y="Dim2")+
+  geom_segment(aes_string(x="x",xend="xend",y="y",yend="yend",size=NULL),data=clulines,size=1)+
+  geom_text(aes_string(label="id",x="x",y="y",size=NULL),data=clucenter,size=10)+
+  theme(text = element_text(size=20),panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(), axis.line = element_line(colour = "black"),
+axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+
+pdf("TSCAN_9cell_SC2.pdf")
+p_p
+dev.off()
+
+p_p
+
+```
+
+# DPT
+
+```{r}
+library(dpt)
+library(destiny)
+
+high_var_genes = scran_high_var(sce_SC1_qc_traj)
+# from: https://github.com/cole-trapnell-lab/monocle2-rge-paper/blob/master/Supplementary_scripts/analysis_neuron_simulation_other_methods.r
+# avoid the error: stats$g >= gmin is not TRUE
+dm <- DiffusionMap(t(logcounts(sce_SC1_qc_traj)[high_var_genes,]))
+dpt <- destiny:::dummy_dpt(dm)
+  stats <- destiny:::tipstats(dpt, seq_len(nrow(dpt)), which(colData(sce_SC1_qc_traj)$group == "9_0_0")[1])
+  branches <- destiny:::auto_branch(dpt, seq_len(nrow(dpt)), stats, 0.1)
+
+  dpt@branch <- branches$branch
+  dpt@tips <- branches$tips
+  
+#dpt <- DPT(dm)
+plot(dpt,col_by = 'branch',paths_to = c(1,2))
+```
+
+```{r}
+p_p = ggplot()+
+  geom_point(data=NULL,aes(x=dm@eigenvectors[,1],y=dm@eigenvectors[,2],col=factor(sce_SC1_qc_traj$H2228)),show.legend = F,size=3)+
+  scale_color_manual(values=brewer.pal(9,"YlGnBu")[2:8])+
+  labs(x="Dim1",y="Dim2")+
+  theme(text = element_text(size=20),panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(), axis.line = element_line(colour = "black"),
+axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+pdf("DPT_9cell_SC1.pdf")
+p_p
+dev.off()
+
+p_p
+```
+
+
+```{r}
+high_var_genes = scran_high_var(sce_SC2_qc_traj)
+
+dm <- DiffusionMap(t(logcounts(sce_SC2_qc_traj)[high_var_genes,]))
+dpt <- destiny:::dummy_dpt(dm)
+  stats <- destiny:::tipstats(dpt, seq_len(nrow(dpt)), which(colData(sce_SC2_qc_traj)$group == "9_0_0")[1])
+  branches <- destiny:::auto_branch(dpt, seq_len(nrow(dpt)), stats, 0.1)
+
+  dpt@branch <- branches$branch
+  dpt@tips <- branches$tips
+  
+p_p = ggplot()+
+  geom_point(data=NULL,aes(x=dm@eigenvectors[,1],y=dm@eigenvectors[,2],col=factor(sce_SC2_qc_traj$H2228)),show.legend = F,size=3)+
+  scale_color_manual(values=brewer.pal(9,"YlGnBu")[2:8])+
+  labs(x="Dim1",y="Dim2")+
+  theme(text = element_text(size=20),panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(), axis.line = element_line(colour = "black"),
+axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+pdf("DPT_9cell_SC2.pdf")
+p_p
+dev.off()
+
+p_p
+```
+
+
+
+```{r}
+high_var_genes = scran_high_var(sce8_qc)
+
+dm <- DiffusionMap(t(logcounts(sce8_qc)[high_var_genes,]))
+dpt <- destiny:::dummy_dpt(dm)
+  stats <- destiny:::tipstats(dpt, seq_len(nrow(dpt)), which(colData(sce8_qc)$group == "1_0_0")[1])
+  branches <- destiny:::auto_branch(dpt, seq_len(nrow(dpt)), stats, 0.1)
+
+  dpt@branch <- branches$branch
+  dpt@tips <- branches$tips
+  
+p_p = ggplot()+
+  geom_point(data=NULL,aes(x=dm@eigenvectors[,1],y=dm@eigenvectors[,2],col=factor(sce8_qc$H2228_prop)),show.legend = F,size=3)+
+  scale_color_manual(values=brewer.pal(9,"YlGnBu")[3:8])+
+  labs(x="Dim1",y="Dim2")+
+  theme(text = element_text(size=20),panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(), axis.line = element_line(colour = "black"),
+axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+pdf("DPT_RNAmix_Sort-seq.pdf")
+p_p
+dev.off()
+
+p_p
+```

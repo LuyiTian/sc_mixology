@@ -1,0 +1,454 @@
+---
+title: "Figure 2"
+output: html_notebook
+---
+
+```{r}
+library(scater)
+library(scran)
+library(RColorBrewer)
+library("ggExtra")
+```
+
+
+
+```{r}
+load("~/Dropbox/research/benchmark/rdata/9cellmix_qc.RData")
+load("~/Dropbox/research/benchmark/rdata/sincell_with_class.RData")
+load("~/Dropbox/research/benchmark/rdata/mRNAmix_qc.RData")
+load("~/Dropbox/research/benchmark/rdata/DEtable_90cells.RData")
+```
+
+# A
+
+```{r}
+sel_col = c("unaligned", "aligned_unmapped", "ambiguous_mapping",
+              "mapped_to_ERCC", "mapped_to_intron", "mapped_to_exon")
+tmp = as.data.frame(QC_metrics(sce_SC1_qc)[,sel_col])
+mapping1 = tmp$mapped_to_intron/rowSums(tmp)
+tmp = as.data.frame(QC_metrics(sce_SC2_qc)[,sel_col])
+mapping2 = tmp$mapped_to_intron/rowSums(tmp)
+tmp = as.data.frame(QC_metrics(sce_SC3_qc)[,sel_col])
+mapping3 = tmp$mapped_to_intron/rowSums(tmp)
+tmp = as.data.frame(QC_metrics(sce_SC4_qc)[,sel_col])
+mapping4 = tmp$mapped_to_intron/rowSums(tmp)
+tmp = as.data.frame(QC_metrics(sce_POP_sel_qc)[,sel_col])
+mapping_pop = tmp$mapped_to_intron/rowSums(tmp)
+
+tmp = as.data.frame(QC_metrics(sce2_qc)[,sel_col])
+mapping_sce2 = tmp$mapped_to_intron/rowSums(tmp)
+tmp = as.data.frame(QC_metrics(sce4_qc)[,sel_col])
+mapping_sce4 = tmp$mapped_to_intron/rowSums(tmp)
+tmp = as.data.frame(QC_metrics(sce8_qc)[,sel_col])
+mapping_sce8 = tmp$mapped_to_intron/rowSums(tmp)
+
+sel_col = c("unaligned", "aligned_unmapped", "ambiguous_mapping", "mapped_to_intron", "mapped_to_exon")
+tmp = as.data.frame(QC_metrics(sce10x_qc)[,sel_col])
+mapping_sce10x = tmp$mapped_to_intron/rowSums(tmp)
+tmp = as.data.frame(QC_metrics(scedrop_qc_qc)[,sel_col])
+mapping_scedrop = tmp$mapped_to_intron/rowSums(tmp)
+
+mapping_prop = data.frame(intron_mapping_rate=c(mapping1,mapping2,mapping3,mapping4,mapping_pop,mapping_sce2,mapping_sce4,mapping_sce8,mapping_sce10x,mapping_scedrop),batch=c(rep("cellmix1",length(mapping1)),rep("cellmix2",length(mapping2)),rep("cellmix3",length(mapping3)),rep("cellmix4",length(mapping4)),rep("cellmix5",length(mapping_pop)),rep("RNAmix_CEL-seq2",length(mapping_sce2)),rep("sc_CEL-seq2",length(mapping_sce4)),rep("RNAmix_Sort-seq",length(mapping_sce8)),rep("sc_10X",length(mapping_sce10x)),rep("sc_Drop-seq",length(mapping_scedrop)) ))
+
+mapping_prop$batch = factor(mapping_prop$batch, levels = c("sc_10X","sc_CEL-seq2","sc_Drop-seq","cellmix1","cellmix2","cellmix3","cellmix4","cellmix5","RNAmix_CEL-seq2","RNAmix_Sort-seq"))
+
+p = ggplot(mapping_prop, aes(x=batch, y=intron_mapping_rate,fill=batch))+
+  geom_boxplot(show.legend = F)+
+  scale_fill_manual(values=c("#A5A3CE", "#8E8BC1", "#8E6FC1","#94CFBC","#78C2AB","#51B294","#1B9E77","#147B5D","#D95F02","#E0823C"))+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle = 30, hjust = 1),text = element_text(size=20))
+pdf("intron_mapping_batch.pdf",width = 8,height = 4)
+p
+dev.off()
+p
+```
+
+# B
+
+```{r}
+colData(sce2_qc)$ERCC_count = colSums(counts(sce2_qc[isSpike(sce2_qc),]))
+colData(sce4_qc)$ERCC_count = colSums(counts(sce4_qc[isSpike(sce4_qc),]))
+colData(sce8_qc)$ERCC_count = colSums(counts(sce8_qc[isSpike(sce8_qc),]))
+
+dat = data.frame(experiment=c(rep("mRNAmix",ncol(sce2_qc)),
+                              rep("single cell",ncol(sce4_qc)),
+                              rep("mRNAmix_SORTseq",ncol(sce8_qc))),
+                 ERCC_count=c(colData(sce2_qc)$ERCC_count,
+                              colData(sce4_qc)$ERCC_count,
+                              colData(sce8_qc)$ERCC_count),
+                 count_per_cell=c((colData(sce2_qc)$total_count_per_cell),
+                                  (colData(sce4_qc)$total_count_per_cell),
+                                  (colData(sce8_qc)$total_count_per_cell)),
+                 mRNA_amount=c(colData(sce2_qc)$mRNA_amount,
+                               rep(NA,ncol(sce4_qc)),
+                               colData(sce8_qc)$mRNA_amount),
+                 mix=c(colData(sce2_qc)$mix,
+                       rep(NA,ncol(sce4_qc)),
+                       colData(sce8_qc)$mix))
+
+dat = dat[dat$ERCC_count>2^(5.5),]
+
+
+ggplot(data=dat[(dat$experiment=="mRNAmix"),],aes(x=factor(mix),y=log2(count_per_cell),fill=factor(mRNA_amount)))+
+  geom_boxplot()+
+  scale_fill_brewer(palette="Spectral",direction = -1)+
+  theme_bw()
+
+```
+
+
+```{r}
+p1 = ggplot(data=dat[(dat$experiment=="mRNAmix"),],aes(y=log2(count_per_cell),x=log2(ERCC_count),col=factor(mRNA_amount)))+
+  geom_point(show.legend = F)+
+  geom_smooth(method='lm',show.legend = F)+
+  scale_color_brewer(palette="Spectral",direction = -1)+
+  labs(x="ERCC count (log2)",y="UMI count (log2)",col="RNA amount (pg)")+
+  theme(text = element_text(size=15),panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+  panel.background = element_blank(), axis.line = element_line(colour = "black"))
+pdf("ERCC_scatter_RNAmix.pdf")
+ggMarginal(p1,groupColour = TRUE)
+dev.off()
+
+
+p2 = ggplot(data=dat[(dat$experiment=="mRNAmix"),],aes(y=log2(count_per_cell),x=log2(ERCC_count),col=factor(mRNA_amount)))+
+  geom_point(show.legend = T)+
+  geom_smooth(method='lm',show.legend = F)+
+  scale_color_brewer(palette="Spectral",direction = -1)+
+  labs(x="ERCC count (log2)",y="UMI count (log2)",col="RNA amount (pg)")+
+  theme(text = element_text(size=15),panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+  panel.background = element_blank(), axis.line = element_line(colour = "black"))
+pdf("ERCC_scatter_RNAmix_with_legend.pdf")
+ggMarginal(p2,groupColour = TRUE)
+dev.off()
+```
+
+
+```{r}
+library(lme4)
+tmp_da = dat[(dat$experiment=="mRNAmix"),]
+tmp_da$mRNA_amount = as.factor(tmp_da$mRNA_amount)
+tmp_da$mix = as.factor(tmp_da$mix)
+tmp_da$ERCC_count = log2(tmp_da$ERCC_count)
+tmp_da$count_per_cell = log2(tmp_da$count_per_cell)
+fm0 = lmer(count_per_cell ~ mix + (1 | mRNA_amount),data=tmp_da)
+fm1 = lmer(count_per_cell ~ mix+ERCC_count + (1 | mRNA_amount),data=tmp_da)
+fm2 = lmer(count_per_cell ~ mix+ERCC_count+ (ERCC_count | mRNA_amount),data=tmp_da)
+summary(fm1)
+```
+
+```{r}
+anova(fm0,fm1,fm2,refit=FALSE)
+```
+
+```{r}
+tmp_da = dat[(dat$experiment=="mRNAmix_SORTseq"),]
+tmp_da$mRNA_amount = as.factor(tmp_da$mRNA_amount)
+tmp_da$mix = as.factor(tmp_da$mix)
+tmp_da$ERCC_count = log2(tmp_da$ERCC_count)
+tmp_da$count_per_cell = log2(tmp_da$count_per_cell)
+fm0 = lmer(count_per_cell ~ 1 + (1 | mRNA_amount),data=tmp_da)
+fm1 = lmer(count_per_cell ~ ERCC_count + (1 | mRNA_amount),data=tmp_da)
+fm2 = lmer(count_per_cell ~ ERCC_count+ (ERCC_count | mRNA_amount),data=tmp_da)
+summary(fm1)
+```
+
+```{r}
+anova(fm0,fm1,fm2,refit=FALSE)
+```
+
+```{r}
+p1 = ggplot(data=dat[(dat$experiment=="mRNAmix_SORTseq"),],aes(y=log2(count_per_cell),x=log2(ERCC_count),col=factor(mRNA_amount)))+
+  geom_point(show.legend = F)+
+  geom_smooth(method='lm',show.legend = F)+
+  scale_color_brewer(palette="Spectral",direction = -1)+
+  labs(x="ERCC count (log2)",y="UMI count (log2)",col="RNA amount (pg)")+
+  theme(text = element_text(size=15),panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+  panel.background = element_blank(), axis.line = element_line(colour = "black"))
+pdf("ERCC_scatter_mRNAmix_SORTseq.pdf")
+ggMarginal(p1,groupColour = TRUE)
+dev.off()
+
+
+p2 = ggplot(data=dat[(dat$experiment=="mRNAmix_SORTseq"),],aes(y=log2(count_per_cell),x=log2(ERCC_count),col=factor(mRNA_amount)))+
+  geom_point(show.legend = T)+
+  geom_smooth(method='lm',show.legend = F)+
+  scale_color_brewer(palette="Spectral",direction = -1)+
+  labs(x="ERCC count (log2)",y="UMI count (log2)",col="RNA amount (pg)")+
+  theme(text = element_text(size=15),panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+  panel.background = element_blank(), axis.line = element_line(colour = "black"))
+pdf("ERCC_scatter_mRNAmix_SORTseq_with_legend.pdf")
+ggMarginal(p2,groupColour = TRUE)
+dev.off()
+```
+
+
+
+# C
+
+
+```{r}
+NB_poisson_fit = function(sce){
+    x = apply(counts(sce),1,mean)
+  y.1 = apply(counts(sce),1,function(x){sum(x>0)/length(x)})
+  y.possion= exp(-x)
+  if(!is.null(isSpike(sce))){
+    fit_out = nls(y~ ((z^(-1))/(x+z^(-1)))^(z^(-1)),data.frame(y=(1-y.1)[isSpike(sce)],x=x[isSpike(sce)]),start = list(z = .5))
+    sum.fit = summary(fit_out)
+    z.fit = sum.fit$parameters[1]
+    x.fit= x
+    y.NB= ((z.fit^(-1))/(x.fit+z.fit^(-1)))^(z.fit^(-1))
+    return(data.frame(x=x, y=1-y.1, y.possion=y.possion, y.NB=y.NB))
+  }else{
+    return(data.frame(x=x, y=1-y.1, y.possion=y.possion, y.NB=NA))
+  }
+}
+```
+
+
+```{r}
+sc_df_celseq = NB_poisson_fit(sce2_qc[,])
+sc_df_sortseq = NB_poisson_fit(sce8_qc[,])
+
+
+com_gene = Reduce(intersect, list(rownames(sc_df_celseq),
+                                  rownames(sc_df_sortseq)))
+
+sc_df_celseq = sc_df_celseq[com_gene,]
+sc_df_sortseq = sc_df_sortseq[com_gene,]
+
+sc_df_celseq$residual = sc_df_celseq$y-sc_df_celseq$y.possion
+sc_df_sortseq$residual = sc_df_sortseq$y-sc_df_sortseq$y.possion
+
+ggplot(data=NULL,aes(x=sc_df_celseq$residual, y=sc_df_sortseq$residual,col=(sc_df_sortseq$y)))+
+  geom_point()
+```
+
+```{r}
+tmp = rownames(sc_df_celseq)[sc_df_celseq$residual>0.15 & sc_df_celseq$residual>0.2]
+write.csv(tmp,row.names = F, quote = F)
+```
+
+
+```{r}
+combined_DE_rank = data.frame(H1975=H1975_DEtable$FDR, 
+                              H2228=H2228_DEtable[rownames(H1975_DEtable),]$FDR, 
+                              HCC827=HCC827_DEtable[rownames(H1975_DEtable),]$FDR,
+                              row.names = rownames(H1975_DEtable))
+
+combined_DE_rank$min_FDR = apply(combined_DE_rank,1,min)
+combined_DE_rank$min_FDR = -log10(combined_DE_rank$min_FDR)
+
+sc_df_celseq$DE_FDR = -log10(HCC827_DEtable[rownames(sc_df_celseq),"FDR"])
+```
+
+```{r}
+plot(sc_df_celseq$DE_FDR, sc_df_celseq$residual)
+```
+```{r}
+rownames(sc_df_celseq)[sc_df_celseq$DE_FDR>10 & sc_df_celseq$residual>0.2 ]
+```
+
+
+```{r}
+ggplot(data=sc_df_celseq,aes(x=x,y=y,col=residual))+
+  geom_point()+
+  scale_x_log10()
+```
+
+
+```{r,fig.height=3,fig.width=15}
+ggplot(data=NULL,aes(y=log2(counts(sce2_qc)["ENSG00000163874",]+1),x=factor(sce2_qc$mix),col=factor(sce2_qc$mRNA_amount)))+
+  geom_boxplot()+
+  theme_bw()
+```
+
+
+```{r}
+H2228_DEtable["ENSG00000163874",]
+sc_df_celseq["ENSG00000163874",]
+```
+
+# Supp
+
+```{r}
+sel_col = c("unaligned", "aligned_unmapped", "ambiguous_mapping",
+              "mapped_to_ERCC", "mapped_to_intron", "mapped_to_exon")
+tmp = as.data.frame(QC_metrics(sce_SC1_qc)[,sel_col])
+mapping1 = tmp$mapped_to_exon/rowSums(tmp)
+tmp = as.data.frame(QC_metrics(sce_SC2_qc)[,sel_col])
+mapping2 = tmp$mapped_to_exon/rowSums(tmp)
+tmp = as.data.frame(QC_metrics(sce_SC3_qc)[,sel_col])
+mapping3 = tmp$mapped_to_exon/rowSums(tmp)
+tmp = as.data.frame(QC_metrics(sce_SC4_qc)[,sel_col])
+mapping4 = tmp$mapped_to_exon/rowSums(tmp)
+tmp = as.data.frame(QC_metrics(sce_POP_sel_qc)[,sel_col])
+mapping_pop = tmp$mapped_to_exon/rowSums(tmp)
+
+tmp = as.data.frame(QC_metrics(sce2_qc)[,sel_col])
+mapping_sce2 = tmp$mapped_to_exon/rowSums(tmp)
+tmp = as.data.frame(QC_metrics(sce4_qc)[,sel_col])
+mapping_sce4 = tmp$mapped_to_exon/rowSums(tmp)
+tmp = as.data.frame(QC_metrics(sce8_qc)[,sel_col])
+mapping_sce8 = tmp$mapped_to_exon/rowSums(tmp)
+
+sel_col = c("unaligned", "aligned_unmapped", "ambiguous_mapping", "mapped_to_intron", "mapped_to_exon")
+tmp = as.data.frame(QC_metrics(sce10x_qc)[,sel_col])
+mapping_sce10x = tmp$mapped_to_exon/rowSums(tmp)
+tmp = as.data.frame(QC_metrics(scedrop_qc_qc)[,sel_col])
+mapping_scedrop = tmp$mapped_to_exon/rowSums(tmp)
+
+mapping_prop = data.frame(exon_mapping_rate=c(mapping1,mapping2,mapping3,mapping4,mapping_pop,mapping_sce2,mapping_sce4,mapping_sce8,mapping_sce10x,mapping_scedrop),batch=c(rep("cellmix1",length(mapping1)),rep("cellmix2",length(mapping2)),rep("cellmix3",length(mapping3)),rep("cellmix4",length(mapping4)),rep("cellmix5",length(mapping_pop)),rep("RNAmix_CEL-seq2",length(mapping_sce2)),rep("sc_CEL-seq2",length(mapping_sce4)),rep("RNAmix_Sort-seq",length(mapping_sce8)),rep("sc_10X",length(mapping_sce10x)),rep("sc_Drop-seq",length(mapping_scedrop)) ))
+
+mapping_prop$batch = factor(mapping_prop$batch, levels = c("sc_10X","sc_CEL-seq2","sc_Drop-seq","cellmix1","cellmix2","cellmix3","cellmix4","cellmix5","RNAmix_CEL-seq2","RNAmix_Sort-seq"))
+
+p = ggplot(mapping_prop, aes(x=batch, y=exon_mapping_rate,fill=batch))+
+  geom_boxplot(show.legend = F)+
+  scale_fill_manual(values=c("#A5A3CE", "#8E8BC1", "#8E6FC1","#94CFBC","#78C2AB","#51B294","#1B9E77","#147B5D","#D95F02","#E0823C"))+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle = 30, hjust = 1),text = element_text(size=20))
+pdf("exon_mapping_batch.pdf",width = 8,height = 4)
+p
+dev.off()
+p
+```
+
+```{r}
+sel_col = c("unaligned", "aligned_unmapped", "ambiguous_mapping",
+              "mapped_to_ERCC", "mapped_to_intron", "mapped_to_exon","total_count_per_cell")
+tmp = as.data.frame(QC_metrics(sce_SC1_qc)[,sel_col])
+mapping1 = tmp$total_count_per_cell
+tmp = as.data.frame(QC_metrics(sce_SC2_qc)[,sel_col])
+mapping2 = tmp$total_count_per_cell
+tmp = as.data.frame(QC_metrics(sce_SC3_qc)[,sel_col])
+mapping3 = tmp$total_count_per_cell
+tmp = as.data.frame(QC_metrics(sce_SC4_qc)[,sel_col])
+mapping4 = tmp$total_count_per_cell
+tmp = as.data.frame(QC_metrics(sce_POP_sel_qc)[,sel_col])
+mapping_pop = tmp$total_count_per_cell
+
+tmp = as.data.frame(QC_metrics(sce2_qc)[,sel_col])
+mapping_sce2 = tmp$total_count_per_cell
+tmp = as.data.frame(QC_metrics(sce4_qc)[,sel_col])
+mapping_sce4 = tmp$total_count_per_cell
+tmp = as.data.frame(QC_metrics(sce8_qc)[,sel_col])
+mapping_sce8 = tmp$total_count_per_cell
+
+sel_col = c("unaligned", "aligned_unmapped", "ambiguous_mapping", "mapped_to_intron", "mapped_to_exon","total_count_per_cell")
+tmp = as.data.frame(QC_metrics(sce10x_qc)[,sel_col])
+mapping_sce10x = tmp$total_count_per_cell
+tmp = as.data.frame(QC_metrics(scedrop_qc_qc)[,sel_col])
+mapping_scedrop = tmp$total_count_per_cell
+
+mapping_prop = data.frame(UMI_count=c(mapping1,mapping2,mapping3,mapping4,mapping_pop,mapping_sce2,mapping_sce4,mapping_sce8,mapping_sce10x,mapping_scedrop),batch=c(rep("cellmix1",length(mapping1)),rep("cellmix2",length(mapping2)),rep("cellmix3",length(mapping3)),rep("cellmix4",length(mapping4)),rep("cellmix5",length(mapping_pop)),rep("RNAmix_CEL-seq2",length(mapping_sce2)),rep("sc_CEL-seq2",length(mapping_sce4)),rep("RNAmix_Sort-seq",length(mapping_sce8)),rep("sc_10X",length(mapping_sce10x)),rep("sc_Drop-seq",length(mapping_scedrop)) ))
+
+mapping_prop$batch = factor(mapping_prop$batch, levels = c("sc_10X","sc_CEL-seq2","sc_Drop-seq","cellmix1","cellmix2","cellmix3","cellmix4","cellmix5","RNAmix_CEL-seq2","RNAmix_Sort-seq"))
+
+p = ggplot(mapping_prop, aes(x=batch, y=log2(UMI_count),fill=batch))+
+  geom_boxplot(show.legend = F)+
+  scale_fill_manual(values=c("#A5A3CE", "#8E8BC1", "#8E6FC1","#94CFBC","#78C2AB","#51B294","#1B9E77","#147B5D","#D95F02","#E0823C"))+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle = 30, hjust = 1),text = element_text(size=20))
+pdf("UMI_count_batch.pdf",width = 8,height = 4)
+p
+dev.off()
+p
+```
+
+
+```{r}
+sel_col = c("unaligned", "aligned_unmapped", "ambiguous_mapping",
+              "mapped_to_ERCC", "mapped_to_intron", "mapped_to_exon","number_of_genes")
+tmp = as.data.frame(QC_metrics(sce_SC1_qc)[,sel_col])
+mapping1 = tmp$number_of_genes
+tmp = as.data.frame(QC_metrics(sce_SC2_qc)[,sel_col])
+mapping2 = tmp$number_of_genes
+tmp = as.data.frame(QC_metrics(sce_SC3_qc)[,sel_col])
+mapping3 = tmp$number_of_genes
+tmp = as.data.frame(QC_metrics(sce_SC4_qc)[,sel_col])
+mapping4 = tmp$number_of_genes
+tmp = as.data.frame(QC_metrics(sce_POP_sel_qc)[,sel_col])
+mapping_pop = tmp$number_of_genes
+
+tmp = as.data.frame(QC_metrics(sce2_qc)[,sel_col])
+mapping_sce2 = tmp$number_of_genes
+tmp = as.data.frame(QC_metrics(sce4_qc)[,sel_col])
+mapping_sce4 = tmp$number_of_genes
+tmp = as.data.frame(QC_metrics(sce8_qc)[,sel_col])
+mapping_sce8 = tmp$number_of_genes
+
+sel_col = c("unaligned", "aligned_unmapped", "ambiguous_mapping", "mapped_to_intron", "mapped_to_exon","number_of_genes")
+tmp = as.data.frame(QC_metrics(sce10x_qc)[,sel_col])
+mapping_sce10x = tmp$number_of_genes
+tmp = as.data.frame(QC_metrics(scedrop_qc_qc)[,sel_col])
+mapping_scedrop = tmp$number_of_genes
+
+mapping_prop = data.frame(number_of_genes=c(mapping1,mapping2,mapping3,mapping4,mapping_pop,mapping_sce2,mapping_sce4,mapping_sce8,mapping_sce10x,mapping_scedrop),batch=c(rep("cellmix1",length(mapping1)),rep("cellmix2",length(mapping2)),rep("cellmix3",length(mapping3)),rep("cellmix4",length(mapping4)),rep("cellmix5",length(mapping_pop)),rep("RNAmix_CEL-seq2",length(mapping_sce2)),rep("sc_CEL-seq2",length(mapping_sce4)),rep("RNAmix_Sort-seq",length(mapping_sce8)),rep("sc_10X",length(mapping_sce10x)),rep("sc_Drop-seq",length(mapping_scedrop)) ))
+
+mapping_prop$batch = factor(mapping_prop$batch, levels = c("sc_10X","sc_CEL-seq2","sc_Drop-seq","cellmix1","cellmix2","cellmix3","cellmix4","cellmix5","RNAmix_CEL-seq2","RNAmix_Sort-seq"))
+
+p = ggplot(mapping_prop, aes(x=batch, y=number_of_genes,fill=batch))+
+  geom_boxplot(show.legend = F)+
+  scale_fill_manual(values=c("#A5A3CE", "#8E8BC1", "#8E6FC1","#94CFBC","#78C2AB","#51B294","#1B9E77","#147B5D","#D95F02","#E0823C"))+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle = 30, hjust = 1),text = element_text(size=20))
+pdf("number_of_genes_batch.pdf",width = 8,height = 4)
+p
+dev.off()
+p
+```
+
+```{r}
+sel_col = c("unaligned", "aligned_unmapped", "ambiguous_mapping",
+              "mapped_to_ERCC", "mapped_to_intron", "mapped_to_exon","total_count_per_cell")
+tmp = as.data.frame(QC_metrics(sce_SC1_qc)[,sel_col])
+mapping1 = tmp$mapped_to_exon/tmp$total_count_per_cell
+tmp = as.data.frame(QC_metrics(sce_SC2_qc)[,sel_col])
+mapping2 = tmp$mapped_to_exon/tmp$total_count_per_cell
+tmp = as.data.frame(QC_metrics(sce_SC3_qc)[,sel_col])
+mapping3 = tmp$mapped_to_exon/tmp$total_count_per_cell
+tmp = as.data.frame(QC_metrics(sce_SC4_qc)[,sel_col])
+mapping4 = tmp$mapped_to_exon/tmp$total_count_per_cell
+tmp = as.data.frame(QC_metrics(sce_POP_sel_qc)[,sel_col])
+mapping_pop = tmp$mapped_to_exon/tmp$total_count_per_cell
+
+tmp = as.data.frame(QC_metrics(sce2_qc)[,sel_col])
+mapping_sce2 = tmp$mapped_to_exon/tmp$total_count_per_cell
+tmp = as.data.frame(QC_metrics(sce4_qc)[,sel_col])
+mapping_sce4 = tmp$mapped_to_exon/tmp$total_count_per_cell
+tmp = as.data.frame(QC_metrics(sce8_qc)[,sel_col])
+mapping_sce8 = tmp$mapped_to_exon/tmp$total_count_per_cell
+
+sel_col = c("unaligned", "aligned_unmapped", "ambiguous_mapping", "mapped_to_intron", "mapped_to_exon","total_count_per_cell")
+tmp = as.data.frame(QC_metrics(sce10x_qc)[,sel_col])
+mapping_sce10x = tmp$mapped_to_exon/tmp$total_count_per_cell
+tmp = as.data.frame(QC_metrics(scedrop_qc_qc)[,sel_col])
+mapping_scedrop = tmp$mapped_to_exon/tmp$total_count_per_cell
+
+mapping_prop = data.frame(amp_rate=c(mapping1,mapping2,mapping3,mapping4,mapping_pop,mapping_sce2,mapping_sce4,mapping_sce8,mapping_sce10x,mapping_scedrop),batch=c(rep("cellmix1",length(mapping1)),rep("cellmix2",length(mapping2)),rep("cellmix3",length(mapping3)),rep("cellmix4",length(mapping4)),rep("cellmix5",length(mapping_pop)),rep("RNAmix_CEL-seq2",length(mapping_sce2)),rep("sc_CEL-seq2",length(mapping_sce4)),rep("RNAmix_Sort-seq",length(mapping_sce8)),rep("sc_10X",length(mapping_sce10x)),rep("sc_Drop-seq",length(mapping_scedrop)) ))
+
+mapping_prop$batch = factor(mapping_prop$batch, levels = c("sc_10X","sc_CEL-seq2","sc_Drop-seq","cellmix1","cellmix2","cellmix3","cellmix4","cellmix5","RNAmix_CEL-seq2","RNAmix_Sort-seq"))
+
+p = ggplot(mapping_prop, aes(x=batch, y=log2(amp_rate),fill=batch))+
+  geom_boxplot(show.legend = F)+
+  scale_fill_manual(values=c("#A5A3CE", "#8E8BC1", "#8E6FC1","#94CFBC","#78C2AB","#51B294","#1B9E77","#147B5D","#D95F02","#E0823C"))+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle = 30, hjust = 1),text = element_text(size=20))
+pdf("amp_rate_batch.pdf",width = 8,height = 4)
+p
+dev.off()
+p
+```
+
+
+```{r}
+index_anno_dropseq <- read.csv("~/data/NN86/N701/index_anno.csv", header=FALSE, stringsAsFactors=FALSE)
+index_anno_10x <- read.csv("~/data/NN76/index_anno.csv", header=FALSE, stringsAsFactors=FALSE)
+
+dat = data.frame(rank=1:4001,read_count=c(index_anno_dropseq$V3,index_anno_10x$V3),protocol=c(rep("Drop-seq",nrow(index_anno_dropseq)),rep("10x",nrow(index_anno_10x))))
+
+ggplot(data=dat,aes(x=rank,y=read_count,col=protocol))+geom_line(size=1)+
+  scale_x_continuous(trans='log2')+
+  scale_y_continuous(trans='log2')+
+  theme_bw()+
+  theme(text = element_text(size=20))
+```

@@ -1,0 +1,207 @@
+---
+title: "SC MDS plot"
+output: html_notebook
+---
+
+```{r}
+library(scran)
+library(scater)
+library(ggplot2)
+```
+
+
+```{r}
+load("~/Dropbox/research/benchmark/rdata/9cellmix_qc.RData")
+load("~/Dropbox/research/benchmark/rdata/sincell_with_class.RData")
+load("~/Dropbox/research/benchmark/rdata/mRNAmix_qc.RData")
+```
+
+
+```{r}
+sel_col = c("unaligned", "aligned_unmapped", "ambiguous_mapping", "mapped_to_intron", "mapped_to_exon", "total_count_per_cell","number_of_genes","protocol","mapped_to_ERCC")
+
+colData(sce_SC4_qc)$protocol="CEL-seq2"
+colData(sce10x_qc_cla)$protocol="10x"
+colData(scedrop_qc)$protocol="Drop-seq"
+colData(sce2_qc)$protocol="CEL-seq2"
+#colData(sce8_qc)$protocol="SORT-seq"
+colData(sce4_qc)$protocol="CEL-seq2"
+
+colData(sce10x_qc_cla)$mapped_to_ERCC=0
+colData(scedrop_qc)$mapped_to_ERCC=0 
+
+combined_res = Reduce(rbind, lapply(list(sce_SC4_qc, sce10x_qc_cla, scedrop_qc, sce2_qc, sce4_qc),function(x){as.data.frame(colData(x)[,sel_col])}))
+
+combined_res$proportion_to_intron = combined_res$mapped_to_intron/rowSums(combined_res[,c("unaligned", "aligned_unmapped", "ambiguous_mapping", "mapped_to_intron", "mapped_to_exon")])
+
+combined_res$proportion_to_exon = combined_res$mapped_to_exon/rowSums(combined_res[,c("unaligned", "aligned_unmapped", "ambiguous_mapping", "mapped_to_intron", "mapped_to_exon")])
+
+pdf("exon_protocol.pdf")
+ ggplot(combined_res, aes(x=protocol, y=proportion_to_exon,fill=protocol))+geom_boxplot(show.legend = F)+theme_bw()+theme(axis.text.x = element_text(angle = 30, hjust = 1),text = element_text(size=20))
+dev.off()
+```
+```{r}
+pdf("intron_protocol.pdf")
+ggplot(combined_res, aes(x=protocol, y=proportion_to_intron,fill=protocol))+geom_boxplot(show.legend = F)+theme_bw()+theme(axis.text.x = element_text(angle = 30, hjust = 1),text = element_text(size=20))
+dev.off()
+```
+
+
+```{r}
+pdf("count_protocol.pdf")
+ggplot(combined_res, aes(x=protocol, y=log2(total_count_per_cell),fill=protocol))+geom_boxplot(show.legend = F)+theme_bw()+theme(axis.text.x = element_text(angle = 30, hjust = 1),text = element_text(size=20))
+dev.off()
+```
+
+```{r}
+ggplot(combined_res, aes(x=protocol, y=number_of_genes,fill=protocol))+geom_boxplot()+theme_bw()+theme(axis.text.x = element_text(angle = 30, hjust = 1),text = element_text(size=20))
+```
+
+
+
+## single cell
+
+```{r}
+sce4_qc_cla = computeSumFactors(sce4_qc)
+sce4_qc_cla <- normalize(sce4_qc_cla)
+
+sce4_qc_cla = runPCA(sce4_qc_cla)
+
+pdf("PCA_sincell_celseq2.pdf")
+ggplot(data=as.data.frame(reducedDim(sce4_qc_cla,"PCA")),aes(x=PC1,y=PC2,col=as.factor(colData(sce4_qc_cla)$cell_line)))+
+  geom_point(size=2,show.legend = F)+
+  scale_color_manual(values=c("red","blue","green"))+
+  theme(text = element_text(size=20),panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(), axis.line = element_line(colour = "black"),
+axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+dev.off()
+```
+
+
+```{r}
+
+scedrop_qc_cla = computeSumFactors(scedrop_qc_qc)
+scedrop_qc_cla <- normalize(scedrop_qc_cla)
+
+scedrop_qc_cla = runPCA(scedrop_qc_cla)
+
+pdf("PCA_sincell_dropseq.pdf")
+ggplot(data=as.data.frame(reducedDim(scedrop_qc_cla,"PCA")),aes(x=PC1,y=PC2,col=as.factor(colData(scedrop_qc_cla)$cell_line)))+
+  geom_point(size=2,show.legend = F)+
+  scale_color_manual(values=c("red","blue","green"))+
+  theme_bw()
+dev.off()
+```
+
+
+
+```{r}
+sce10x_qc_cla = sce10x_qc
+sce10x_qc_cla = computeSumFactors(sce10x_qc_cla)
+sce10x_qc_cla <- normalize(sce10x_qc_cla)
+
+sce10x_qc_cla = runPCA(sce10x_qc_cla)
+
+pdf("PCA_sincell_10x.pdf")
+ggplot(data=as.data.frame(reducedDim(sce10x_qc_cla,"PCA")),aes(x=PC1,y=PC2,col=as.factor(colData(sce10x_qc_cla)$cell_line)))+
+  geom_point(size=3,show.legend = F,alpha=0.7)+
+  scale_color_manual(values=c("red","blue","green"))+
+  theme(text = element_text(size=20),panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(), axis.line = element_line(colour = "black"),
+axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+dev.off()
+```
+
+## mRNA mixture
+
+```{r}
+sce2_qc = computeSumFactors(sce2_qc)
+sce2_qc <- normalize(sce2_qc)
+
+sce2_qc = runPCA(sce2_qc)
+
+colData(sce2_qc)$group = paste("clu",colData(sce2_qc)$H2228_prop,colData(sce2_qc)$H1975_prop,colData(sce2_qc)$HCC827_prop,sep="_")
+
+col <- rgb(sce2_qc$H1975_prop, sce2_qc$HCC827_prop, sce2_qc$H2228_prop,alpha=0.9)
+
+#sce2_qc = sce2_qc[, !(colnames(sce2_qc) == "M19")]
+#sce2_qc = sce2_qc[, !(colnames(sce2_qc) == "I19")]
+
+M = as.matrix(reducedDim(sce2_qc,"PCA"))
+alpha = -pi
+#rotation matrix
+rotm <- matrix(c(cos(alpha),sin(alpha),-sin(alpha),cos(alpha)),ncol=2)
+#shift, rotate, shift back
+M2 <- t(rotm %*% 
+  t(M))
+#plot
+plot(M2[,1],M2[,2])
+colnames(M2) = c("PC1", "PC2")
+
+pdf("PCA_RNAmix_celseq2.pdf")
+ggplot(data=as.data.frame(M2),aes(x=PC1,y=PC2,col=sce2_qc$group))+
+  geom_point(size=3,show.legend = F,alpha=0.7)+
+  scale_color_manual(guide=FALSE,values = unique(col), limits = unique(sce2_qc$group))+
+  theme(text = element_text(size=20),panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(), axis.line = element_line(colour = "black"),
+axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+dev.off()
+```
+
+
+```{r}
+
+keep1 = (apply(counts(sce8_qc), 1, function(x) mean(x[x>0])) > 1.5)  # average count larger than 2
+keep2 = (rowSums(counts(sce8_qc)>0) > 10) 
+sce8_qc = sce8_qc[(keep1 & keep2), ]
+
+sce8_qc = computeSumFactors(sce8_qc)
+sce8_qc <- normalize(sce8_qc)
+
+sce8_qc = runPCA(sce8_qc,ncomponents = 3)
+
+colData(sce8_qc)$group = paste("clu",colData(sce8_qc)$H2228_prop,colData(sce8_qc)$H1975_prop,colData(sce8_qc)$HCC827_prop,sep="_")
+
+col <- rgb(sce8_qc$H1975_prop, sce8_qc$H2228_prop, sce8_qc$HCC827_prop,alpha=0.9)
+
+pdf("PCA_RNAmix_sortseq.pdf")
+ggplot(data=as.data.frame(reducedDim(sce8_qc,"PCA")),aes(x=PC1,y=PC3,col=sce8_qc$group))+
+  geom_point(size=2,show.legend = F)+
+  scale_color_manual(guide=FALSE,values = unique(col), limits = unique(sce8_qc$group))+
+  theme_bw()
+dev.off()
+```
+
+
+```{r}
+sce_SC4_qc = computeSumFactors(sce_SC4_qc)
+sce_SC4_qc <- normalize(sce_SC4_qc)
+
+sce_SC4_qc = runPCA(sce_SC4_qc)
+
+colData(sce_SC4_qc)$group = paste("clu",colData(sce_SC4_qc)$H2228,colData(sce_SC4_qc)$H1975,colData(sce_SC4_qc)$HCC827,sep="_")
+
+col <- rgb(sce_SC4_qc$H1975/9, sce_SC4_qc$H2228/9, sce_SC4_qc$HCC827/9,alpha=0.9)
+
+pdf("PCA_9cell_celseq2.pdf")
+ggplot(data=as.data.frame(reducedDim(sce_SC4_qc,"PCA")),aes(x=PC1,y=PC2,col=sce_SC4_qc$group))+
+  geom_point(size=3,show.legend = F,alpha=0.8 )+
+  scale_color_manual(guide=FALSE,values = unique(col), limits = unique(sce_SC4_qc$group))+
+  theme(text = element_text(size=20),panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(), axis.line = element_line(colour = "black"),
+axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+dev.off()
+```
+

@@ -1,0 +1,738 @@
+---
+title: "plot clustering"
+output: html_notebook
+---
+
+```{r}
+library(ggplot2)
+library(scater)
+library(scran)
+library(mclust)
+```
+
+```{r}
+load("~/Dropbox/research/benchmark/saskia/Clustering_Results/Clustering_Results_mix.RData")
+res_all_mix = res_all
+load("~/Dropbox/research/benchmark/saskia/Clustering_Results/Clustering_Results_mixRNA.RData")
+res_all_RNAmix = res_all
+load("~/Dropbox/research/benchmark/saskia/Clustering_Results/Clustering_Results.RData")
+
+load("~/Dropbox/research/benchmark/rdata/9cellmix_qc.RData")
+load("~/Dropbox/research/benchmark/rdata/sincell_with_class.RData")
+load("~/Dropbox/research/benchmark/rdata/mRNAmix_qc.RData")
+```
+
+```{r}
+sce10x_qc_cla = sce10x_qc
+sce10x_qc_cla = computeSumFactors(sce10x_qc_cla)
+sce10x_qc_cla <- normalize(sce10x_qc_cla)
+
+sce10x_qc_cla = runPCA(sce10x_qc_cla)
+sce10x_qc_cla = runTSNE(sce10x_qc_cla,rand_seed=88888)
+
+
+pdf("TSNE_sincell_10x.pdf")
+ggplot(data=as.data.frame(reducedDim(sce10x_qc_cla,"TSNE")),aes(x=V1,y=V2,col=as.factor(colData(sce10x_qc_cla)$cell_line)))+
+  geom_point(size=3,show.legend = F,alpha=0.7)+
+  labs(x="Dim1",y="Dim2")+
+  scale_color_manual(values=c("red","blue","green"))+
+  theme(text = element_text(size=20),panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(), axis.line = element_line(colour = "black"),
+axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+dev.off()
+
+
+pdf("TSNE_sincell_10x_RaceID2.pdf")
+ggplot(data=as.data.frame(reducedDim(sce10x_qc_cla,"TSNE")),aes(x=V1,y=V2,col=as.factor(res_all$res_10x$RaceID2)))+
+  geom_point(size=3,show.legend = F,alpha=0.7)+
+  labs(x="Dim1",y="Dim2")+
+  #scale_color_manual(values=c("red","blue","green"))+
+  theme(text = element_text(size=20),panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(), axis.line = element_line(colour = "black"),
+axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+dev.off()
+
+pdf("PCA_sincell_10x_RaceID2.pdf")
+ggplot(data=as.data.frame(reducedDim(sce10x_qc_cla,"PCA")),aes(x=PC1,y=PC2,col=as.factor(res_all$res_10x$RaceID2)))+
+  geom_point(size=3,show.legend = F,alpha=0.7)+
+  labs(x="PC1",y="PC2",title=paste0("(n= ",length(unique(res_all$res_10x$RaceID2)),")"))+
+  #scale_color_manual(values=c("red","blue","green"))+
+  theme(plot.title = element_text(hjust = 0.5),
+        text = element_text(size=20),panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(), axis.line = element_line(colour = "black"),
+axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+dev.off()
+
+pdf("TSNE_sincell_10x_Seurat.pdf")
+ggplot(data=as.data.frame(reducedDim(sce10x_qc_cla,"TSNE")),aes(x=V1,y=V2,col=as.factor(res_all$res_10x$Seurat)))+
+  geom_point(size=3,show.legend = F,alpha=0.7)+
+  labs(x="Dim1",y="Dim2")+
+  #scale_color_manual(values=c("red","blue","green"))+
+  theme(text = element_text(size=20),panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(), axis.line = element_line(colour = "black"),
+axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+dev.off()
+
+pdf("PCA_sincell_10x_Seurat.pdf")
+ggplot(data=as.data.frame(reducedDim(sce10x_qc_cla,"PCA")),aes(x=PC1,y=PC2,col=as.factor(res_all$res_10x$Seurat)))+
+  geom_point(size=3,show.legend = F,alpha=0.7)+
+  labs(x="PC1",y="PC2",title=paste0("(n= ",length(unique(res_all$res_10x$Seurat)),")"))+
+  #scale_color_manual(values=c("red","blue","green"))+
+  theme(plot.title = element_text(hjust = 0.5),
+        text = element_text(size=20),panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(), axis.line = element_line(colour = "black"),
+axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+dev.off()
+
+pdf("TSNE_sincell_10x_sc3.pdf")
+ggplot(data=as.data.frame(reducedDim(sce10x_qc_cla,"TSNE")),aes(x=V1,y=V2,col=as.factor(res_all$res_10x$sc3)))+
+  geom_point(size=3,show.legend = F,alpha=0.7)+
+  labs(x="Dim1",y="Dim2")+
+  #scale_color_manual(values=c("red","blue","green"))+
+  theme(text = element_text(size=20),panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(), axis.line = element_line(colour = "black"),
+axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+dev.off()
+```
+
+
+
+```{r}
+sce_SC3_qc = computeSumFactors(sce_SC3_qc)
+sce_SC3_qc <- normalize(sce_SC3_qc)
+
+sce_SC3_qc = runPCA(sce_SC3_qc)
+sce_SC3_qc = runTSNE(sce_SC3_qc,rand_seed=88888)
+
+colData(sce_SC3_qc)$group = paste("clu",colData(sce_SC3_qc)$H2228,colData(sce_SC3_qc)$H1975,colData(sce_SC3_qc)$HCC827,sep="_")
+
+#col <- rgb(sce_SC3_qc$H1975/9, sce_SC3_qc$H2228/9, sce_SC3_qc$HCC827/9,alpha=0.9)
+
+pdf("TSNE_9cell_celseq2_SC3.pdf")
+ggplot(data=as.data.frame(reducedDim(sce_SC3_qc,"TSNE")),aes(x=V1,y=V2,col=sce_SC3_qc$group))+
+  geom_point(size=3,show.legend = F,alpha=0.8 )+
+  labs(x="Dim1",y="Dim2")+
+  #scale_color_manual(guide=FALSE,values = unique(col), limits = unique(sce_SC3_qc$group))+
+  theme(text = element_text(size=20),panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(), axis.line = element_line(colour = "black"),
+axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+dev.off()
+
+pdf("PCA_9cell_celseq2_SC3.pdf")
+ggplot(data=as.data.frame(reducedDim(sce_SC3_qc,"PCA")),aes(x=PC1,y=PC2,col=sce_SC3_qc$group))+
+  geom_point(size=3,show.legend = F,alpha=0.8 )+
+  #scale_color_manual(guide=FALSE,values = unique(col), limits = unique(sce_SC3_qc$group))+
+  theme(text = element_text(size=20),panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(), axis.line = element_line(colour = "black"),
+axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+dev.off()
+
+pdf("PCA_9cell_celseq2_SC3_Seurat.pdf")
+ggplot(data=as.data.frame(reducedDim(sce_SC3_qc,"PCA")),aes(x=PC1,y=PC2,col=as.factor(res_all_mix$res_sc3$Seurat)))+
+  geom_point(size=3,show.legend = F,alpha=0.8 )+
+  labs(x="PC1",y="PC2",title=paste0("(n= ",length(unique(res_all_mix$res_sc3$Seurat)),")"))+
+  #scale_color_manual(guide=FALSE,values = unique(col), limits = unique(sce_SC3_qc$group))+
+  theme(plot.title = element_text(hjust = 0.5),
+        text = element_text(size=20),panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(), axis.line = element_line(colour = "black"),
+axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+dev.off()
+
+pdf("PCA_9cell_celseq2_SC3_RaceID2.pdf")
+ggplot(data=as.data.frame(reducedDim(sce_SC3_qc,"PCA")),aes(x=PC1,y=PC2,col=as.factor(res_all_mix$res_sc3$RaceID2)))+
+  geom_point(size=3,show.legend = F,alpha=0.8 )+
+  labs(x="PC1",y="PC2",title=paste0("(n= ",length(unique(res_all_mix$res_sc3$RaceID2)),")"))+
+  #scale_color_manual(guide=FALSE,values = unique(col), limits = unique(sce_SC3_qc$group))+
+  theme(plot.title = element_text(hjust = 0.5),
+        text = element_text(size=20),panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(), axis.line = element_line(colour = "black"),
+axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+dev.off()
+
+pdf("PCA_9cell_celseq2_SC3_SC3.pdf")
+ggplot(data=as.data.frame(reducedDim(sce_SC3_qc,"PCA")),aes(x=PC1,y=PC2,col=as.factor(res_all_mix$res_sc3$sc3)))+
+  geom_point(size=3,show.legend = F,alpha=0.8 )+
+  #scale_color_manual(guide=FALSE,values = unique(col), limits = unique(sce_SC3_qc$group))+
+  theme(text = element_text(size=20),panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(), axis.line = element_line(colour = "black"),
+axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+dev.off()
+```
+
+# RNAmix
+
+```{r}
+sce2_qc_cla = sce2_qc
+sce2_qc_cla = computeSumFactors(sce2_qc_cla)
+sce2_qc_cla <- normalize(sce2_qc_cla)
+
+sce2_qc_cla = runPCA(sce2_qc_cla)
+sce2_qc_cla = runTSNE(sce2_qc_cla,rand_seed=88888)
+sce2_qc_cla$group = paste0(sce2_qc_cla$H2228_prop,sce2_qc_cla$H1975_prop,sce2_qc_cla$HCC827_prop)
+
+sce8_qc_cla = sce8_qc
+sce8_qc_cla = computeSumFactors(sce8_qc_cla)
+sce8_qc_cla <- normalize(sce8_qc_cla)
+
+sce8_qc_cla = runPCA(sce8_qc_cla)
+sce8_qc_cla = runTSNE(sce8_qc_cla,rand_seed=88888)
+sce8_qc_cla$group = paste0(sce8_qc_cla$H2228_prop,sce8_qc_cla$H1975_prop,sce8_qc_cla$HCC827_prop)
+```
+
+```{r}
+ggplot(data=as.data.frame(reducedDim(sce2_qc_cla,"PCA")),aes(x=PC1,y=PC2,col=as.factor(res_all_RNAmix$res_mix2$Seurat)))+
+  geom_point(size=3,show.legend = F,alpha=0.8 )+
+  labs(x="Dim1",y="Dim2")+
+  theme(text = element_text(size=20),panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(), axis.line = element_line(colour = "black"),
+axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+```
+
+# calculate metrics
+
+```{r}
+cal_entropy=function(x){
+  freqs <- table(x)/length(x)
+  return(-sum(freqs * log(freqs)))
+}
+
+get_method_entropy=function(sce,clu){
+  return(mean(unlist(lapply(unique(sce$group),function(x){cal_entropy(clu[sce$group==x])}))))
+}
+
+get_method_entropy(sce2_qc_cla,res_all_RNAmix$res_mix2$RaceID)
+get_method_entropy(sce2_qc_cla,sce2_qc_cla$group)
+```
+
+```{r}
+get_truth_entropy=function(sce,clu){
+  return(mean(unlist(lapply(unique(clu),function(x){cal_entropy(sce$group[clu==x])}))))
+}
+
+get_truth_entropy(sce2_qc_cla,res_all_RNAmix$res_mix2$RaceID)
+get_truth_entropy(sce2_qc_cla,sce2_qc_cla$group)
+```
+
+
+```{r}
+algorithm <- c("RaceID", "RaceID2", "RCA", "sc3", "Seurat")
+```
+
+## RNAmix_CEL-seq2
+
+```{r}
+alo_avail = algorithm[algorithm %in% colnames(res_all_RNAmix$res_mix2)]
+
+accuracy_entropy = c()
+purity_entropy = c()
+ARI = c()
+clu_n = c()
+
+for (alo in alo_avail){
+  accuracy_entropy = c(accuracy_entropy, get_truth_entropy(sce2_qc_cla,res_all_RNAmix$res_mix2[,alo]))
+  purity_entropy = c(purity_entropy, get_method_entropy(sce2_qc_cla,res_all_RNAmix$res_mix2[,alo]))
+  ARI = c(ARI, adjustedRandIndex(sce2_qc_cla$group,res_all_RNAmix$res_mix2[,alo]))
+  clu_n = c(clu_n,length(table(res_all_RNAmix$res_mix2[,alo])))
+}
+plot(accuracy_entropy, purity_entropy)
+text(accuracy_entropy, purity_entropy,labels=alo_avail)
+
+metrics_df = data.frame(accuracy_entropy=accuracy_entropy,
+                        purity_entropy=purity_entropy,
+                        ARI=ARI,
+                        cluster_number=clu_n,
+                        method=alo_avail)
+metrics_df$dataset = "RNAmix_CEL-seq2"
+metrics_df$design = "RNAmix"
+metrics_all = metrics_df
+```
+
+
+## RNAmix_Sort-seq
+
+```{r}
+alo_avail = algorithm[algorithm %in% colnames(res_all_RNAmix$res_mix8)]
+
+accuracy_entropy = c()
+purity_entropy = c()
+ARI = c()
+clu_n = c()
+
+for (alo in alo_avail){
+  accuracy_entropy = c(accuracy_entropy, get_truth_entropy(sce8_qc_cla,res_all_RNAmix$res_mix8[,alo]))
+  purity_entropy = c(purity_entropy, get_method_entropy(sce8_qc_cla,res_all_RNAmix$res_mix8[,alo]))
+  ARI = c(ARI, adjustedRandIndex(sce8_qc_cla$group,res_all_RNAmix$res_mix8[,alo]))
+  clu_n = c(clu_n,length(table(res_all_RNAmix$res_mix8[,alo])))
+}
+plot(accuracy_entropy, purity_entropy)
+text(accuracy_entropy, purity_entropy,labels=alo_avail)
+
+metrics_df = data.frame(accuracy_entropy=accuracy_entropy,
+                        purity_entropy=purity_entropy,
+                        ARI=ARI,
+                        cluster_number=clu_n,
+                        method=alo_avail)
+metrics_df$dataset = "RNAmix_Sort-seq"
+metrics_df$design = "RNAmix"
+metrics_all = rbind(metrics_all,metrics_df)
+```
+
+#cellmix1
+
+```{r}
+sce_SC1_qc = computeSumFactors(sce_SC1_qc)
+sce_SC1_qc <- normalize(sce_SC1_qc)
+
+sce_SC1_qc = runPCA(sce_SC1_qc)
+sce_SC1_qc = runTSNE(sce_SC1_qc,rand_seed=88888)
+
+colData(sce_SC1_qc)$group = paste("clu",colData(sce_SC1_qc)$H2228,colData(sce_SC1_qc)$H1975,colData(sce_SC1_qc)$HCC827,sep="_")
+
+alo_avail = algorithm[algorithm %in% colnames(res_all_mix$res_sc1)]
+
+accuracy_entropy = c()
+purity_entropy = c()
+ARI = c()
+clu_n = c()
+
+for (alo in alo_avail){
+  accuracy_entropy = c(accuracy_entropy, get_truth_entropy(sce_SC1_qc,res_all_mix$res_sc1[,alo]))
+  purity_entropy = c(purity_entropy, get_method_entropy(sce_SC1_qc,res_all_mix$res_sc1[,alo]))
+  ARI = c(ARI, adjustedRandIndex(sce_SC1_qc$group,res_all_mix$res_sc1[,alo]))
+  clu_n = c(clu_n,length(table(res_all_mix$res_sc1[,alo])))
+}
+plot(accuracy_entropy, purity_entropy)
+text(accuracy_entropy, purity_entropy,labels=alo_avail)
+
+metrics_df = data.frame(accuracy_entropy=accuracy_entropy,
+                        purity_entropy=purity_entropy,
+                        ARI=ARI,
+                        cluster_number=clu_n,
+                        method=alo_avail)
+metrics_df$dataset = "cellmix1"
+metrics_df$design = "cellmix"
+metrics_all = rbind(metrics_all,metrics_df)
+```
+
+#cellmix2
+
+```{r}
+sce_SC2_qc = computeSumFactors(sce_SC2_qc)
+sce_SC2_qc <- normalize(sce_SC2_qc)
+
+sce_SC2_qc = runPCA(sce_SC2_qc)
+sce_SC2_qc = runTSNE(sce_SC2_qc,rand_seed=88888)
+
+colData(sce_SC2_qc)$group = paste("clu",colData(sce_SC2_qc)$H2228,colData(sce_SC2_qc)$H1975,colData(sce_SC2_qc)$HCC827,sep="_")
+
+alo_avail = algorithm[algorithm %in% colnames(res_all_mix$res_sc2)]
+
+accuracy_entropy = c()
+purity_entropy = c()
+ARI = c()
+clu_n = c()
+
+for (alo in alo_avail){
+  accuracy_entropy = c(accuracy_entropy, get_truth_entropy(sce_SC2_qc,res_all_mix$res_sc2[,alo]))
+  purity_entropy = c(purity_entropy, get_method_entropy(sce_SC2_qc,res_all_mix$res_sc2[,alo]))
+  ARI = c(ARI, adjustedRandIndex(sce_SC2_qc$group,res_all_mix$res_sc2[,alo]))
+  clu_n = c(clu_n,length(table(res_all_mix$res_sc2[,alo])))
+}
+plot(accuracy_entropy, purity_entropy)
+text(accuracy_entropy, purity_entropy,labels=alo_avail)
+
+metrics_df = data.frame(accuracy_entropy=accuracy_entropy,
+                        purity_entropy=purity_entropy,
+                        ARI=ARI,
+                        cluster_number=clu_n,
+                        method=alo_avail)
+metrics_df$dataset = "cellmix2"
+metrics_df$design = "cellmix"
+metrics_all = rbind(metrics_all,metrics_df)
+```
+
+
+#cellmix3
+
+```{r}
+sce_SC3_qc = computeSumFactors(sce_SC3_qc)
+sce_SC3_qc <- normalize(sce_SC3_qc)
+
+sce_SC3_qc = runPCA(sce_SC3_qc)
+sce_SC3_qc = runTSNE(sce_SC3_qc,rand_seed=88888)
+
+colData(sce_SC3_qc)$group = paste("clu",colData(sce_SC3_qc)$H2228,colData(sce_SC3_qc)$H1975,colData(sce_SC3_qc)$HCC827,sep="_")
+
+alo_avail = algorithm[algorithm %in% colnames(res_all_mix$res_sc3)]
+
+accuracy_entropy = c()
+purity_entropy = c()
+ARI = c()
+clu_n = c()
+
+for (alo in alo_avail){
+  accuracy_entropy = c(accuracy_entropy, get_truth_entropy(sce_SC3_qc,res_all_mix$res_sc3[,alo]))
+  purity_entropy = c(purity_entropy, get_method_entropy(sce_SC3_qc,res_all_mix$res_sc3[,alo]))
+  ARI = c(ARI, adjustedRandIndex(sce_SC3_qc$group,res_all_mix$res_sc3[,alo]))
+  clu_n = c(clu_n,length(table(res_all_mix$res_sc3[,alo])))
+}
+plot(accuracy_entropy, purity_entropy)
+text(accuracy_entropy, purity_entropy,labels=alo_avail)
+
+metrics_df = data.frame(accuracy_entropy=accuracy_entropy,
+                        purity_entropy=purity_entropy,
+                        ARI=ARI,
+                        cluster_number=clu_n,
+                        method=alo_avail)
+metrics_df$dataset = "cellmix3"
+metrics_df$design = "cellmix"
+metrics_all = rbind(metrics_all,metrics_df)
+```
+
+
+#cellmix4
+
+```{r}
+sce_SC4_qc = computeSumFactors(sce_SC4_qc)
+sce_SC4_qc <- normalize(sce_SC4_qc)
+
+sce_SC4_qc = runPCA(sce_SC4_qc)
+sce_SC4_qc = runTSNE(sce_SC4_qc,rand_seed=88888)
+
+colData(sce_SC4_qc)$group = paste("clu",colData(sce_SC4_qc)$H2228,colData(sce_SC4_qc)$H1975,colData(sce_SC4_qc)$HCC827,sep="_")
+
+alo_avail = algorithm[algorithm %in% colnames(res_all_mix$res_sc4)]
+
+accuracy_entropy = c()
+purity_entropy = c()
+ARI = c()
+clu_n = c()
+
+for (alo in alo_avail){
+  accuracy_entropy = c(accuracy_entropy, get_truth_entropy(sce_SC4_qc,res_all_mix$res_sc4[,alo]))
+  purity_entropy = c(purity_entropy, get_method_entropy(sce_SC4_qc,res_all_mix$res_sc4[,alo]))
+  ARI = c(ARI, adjustedRandIndex(sce_SC4_qc$group,res_all_mix$res_sc4[,alo]))
+  clu_n = c(clu_n,length(table(res_all_mix$res_sc4[,alo])))
+}
+plot(accuracy_entropy, purity_entropy)
+text(accuracy_entropy, purity_entropy,labels=alo_avail)
+
+metrics_df = data.frame(accuracy_entropy=accuracy_entropy,
+                        purity_entropy=purity_entropy,
+                        ARI=ARI,
+                        cluster_number=clu_n,
+                        method=alo_avail)
+metrics_df$dataset = "cellmix4"
+metrics_df$design = "cellmix"
+metrics_all = rbind(metrics_all,metrics_df)
+```
+
+```{r}
+algorithm <- c("clusterExperiment", "RaceID", "RaceID2", "RCA", "sc3", "Seurat")
+```
+
+
+# 10x single cell
+
+```{r}
+colData(sce10x_qc_cla)$group = sce10x_qc_cla$cell_line
+
+alo_avail = algorithm[algorithm %in% colnames(res_all$res_10x)]
+
+accuracy_entropy = c()
+purity_entropy = c()
+ARI = c()
+clu_n = c()
+
+for (alo in alo_avail){
+  accuracy_entropy = c(accuracy_entropy, get_truth_entropy(sce10x_qc_cla,res_all$res_10x[,alo]))
+  purity_entropy = c(purity_entropy, get_method_entropy(sce10x_qc_cla,res_all$res_10x[,alo]))
+  ARI = c(ARI, adjustedRandIndex(sce10x_qc_cla$group,res_all$res_10x[,alo]))
+  clu_n = c(clu_n,length(table(res_all$res_10x[,alo])))
+}
+plot(accuracy_entropy, purity_entropy)
+text(accuracy_entropy, purity_entropy,labels=alo_avail)
+
+metrics_df = data.frame(accuracy_entropy=accuracy_entropy,
+                        purity_entropy=purity_entropy,
+                        ARI=ARI,
+                        cluster_number=clu_n,
+                        method=alo_avail)
+metrics_df$dataset = "sc_10X"
+metrics_df$design = "sc"
+metrics_all = rbind(metrics_all,metrics_df)
+```
+
+
+# CEL-seq2 single cell
+
+```{r}
+sce4_qc = sce4_qc
+sce4_qc = computeSumFactors(sce4_qc)
+sce4_qc <- normalize(sce4_qc)
+
+sce4_qc = runPCA(sce4_qc)
+sce4_qc = runTSNE(sce4_qc,rand_seed=88888)
+
+colData(sce4_qc)$group = sce4_qc$cell_line
+
+alo_avail = algorithm[algorithm %in% colnames(res_all$res_celseq)]
+
+accuracy_entropy = c()
+purity_entropy = c()
+ARI = c()
+clu_n = c()
+
+for (alo in alo_avail){
+  accuracy_entropy = c(accuracy_entropy, get_truth_entropy(sce4_qc,res_all$res_celseq[,alo]))
+  purity_entropy = c(purity_entropy, get_method_entropy(sce4_qc,res_all$res_celseq[,alo]))
+  ARI = c(ARI, adjustedRandIndex(sce4_qc$group,res_all$res_celseq[,alo]))
+  clu_n = c(clu_n,length(table(res_all$res_celseq[,alo])))
+}
+plot(accuracy_entropy, purity_entropy)
+text(accuracy_entropy, purity_entropy,labels=alo_avail)
+
+metrics_df = data.frame(accuracy_entropy=accuracy_entropy,
+                        purity_entropy=purity_entropy,
+                        ARI=ARI,
+                        cluster_number=clu_n,
+                        method=alo_avail)
+metrics_df$dataset = "sc_CEL-seq2"
+metrics_df$design = "sc"
+metrics_all = rbind(metrics_all,metrics_df)
+```
+
+
+# Drop-seq single cell
+
+```{r}
+scedrop_qc_qc = scedrop_qc_qc
+scedrop_qc_qc = computeSumFactors(scedrop_qc_qc)
+scedrop_qc_qc <- normalize(scedrop_qc_qc)
+
+scedrop_qc_qc = runPCA(scedrop_qc_qc)
+scedrop_qc_qc = runTSNE(scedrop_qc_qc,rand_seed=88888)
+
+colData(scedrop_qc_qc)$group = scedrop_qc_qc$cell_line
+
+alo_avail = algorithm[algorithm %in% colnames(res_all$res_dropseq)]
+
+accuracy_entropy = c()
+purity_entropy = c()
+ARI = c()
+clu_n = c()
+
+for (alo in alo_avail){
+  accuracy_entropy = c(accuracy_entropy, get_truth_entropy(scedrop_qc_qc,res_all$res_dropseq[colnames(scedrop_qc_qc),alo]))
+  purity_entropy = c(purity_entropy, get_method_entropy(scedrop_qc_qc,res_all$res_dropseq[colnames(scedrop_qc_qc),alo]))
+  ARI = c(ARI, adjustedRandIndex(scedrop_qc_qc$group,res_all$res_dropseq[colnames(scedrop_qc_qc),alo]))
+  clu_n = c(clu_n,length(table(res_all$res_dropseq[colnames(scedrop_qc_qc),alo])))
+}
+plot(accuracy_entropy, purity_entropy)
+text(accuracy_entropy, purity_entropy,labels=alo_avail)
+
+metrics_df = data.frame(accuracy_entropy=accuracy_entropy,
+                        purity_entropy=purity_entropy,
+                        ARI=ARI,
+                        cluster_number=clu_n,
+                        method=alo_avail)
+metrics_df$dataset = "sc_Drop-seq"
+metrics_df$design = "sc"
+metrics_all = rbind(metrics_all,metrics_df)
+```
+
+
+```{r}
+library(ggrepel)
+library(RColorBrewer)
+
+metrics_all = metrics_all[metrics_all$cluster_number>0,]
+method_col = brewer.pal(n = 6, name = "Dark2")
+names(method_col) = c("RaceID", "RaceID2", "RCA", "sc3", "Seurat","clusterExperiment")
+```
+
+```{r}
+dataset = "sc_CEL-seq2"
+pdf(paste0(dataset,"_cluster_entropy.pdf"))
+ggplot(data=metrics_all[metrics_all$dataset==dataset,],aes(x=accuracy_entropy,y=purity_entropy,col=method,label=method))+
+  geom_point(show.legend = F)+
+  geom_text_repel(size=7,show.legend = F)+
+  scale_y_continuous(limits = c(0.,NA))+
+  scale_x_continuous(limits = c(0.,NA))+
+  labs(x="entropy of cluster accuracy",y="entropy of cluster purity")+
+  scale_color_manual(values=method_col)+
+    theme(text = element_text(size=20),panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(),axis.line = element_line(colour = "black"))
+dev.off()
+```
+
+
+```{r}
+dataset = "sc_10X"
+pdf(paste0(dataset,"_cluster_entropy.pdf"))
+ggplot(data=metrics_all[metrics_all$dataset==dataset,],aes(x=accuracy_entropy,y=purity_entropy,col=method,label=method))+
+  geom_point(show.legend = F)+
+  geom_text_repel(size=7,show.legend = F)+
+  scale_y_continuous(limits = c(0.,NA))+
+  scale_x_continuous(limits = c(0.,NA))+
+  labs(x="entropy of cluster accuracy",y="entropy of cluster purity")+
+  scale_color_manual(values=method_col)+
+    theme(text = element_text(size=20),panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(),axis.line = element_line(colour = "black"))
+dev.off()
+```
+
+```{r}
+dataset = "sc_Drop-seq"
+pdf(paste0(dataset,"_cluster_entropy.pdf"))
+ggplot(data=metrics_all[metrics_all$dataset==dataset,],aes(x=accuracy_entropy,y=purity_entropy,col=method,label=method))+
+  geom_point(show.legend = F)+
+  geom_text_repel(size=7,show.legend = F)+
+  scale_y_continuous(limits = c(0.,NA))+
+  scale_x_continuous(limits = c(0.,NA))+
+  labs(x="entropy of cluster accuracy",y="entropy of cluster purity")+
+  scale_color_manual(values=method_col)+
+    theme(text = element_text(size=20),panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(),axis.line = element_line(colour = "black"))
+dev.off()
+```
+
+```{r}
+dataset_vec = c(paste0("cellmix",1:4),"RNAmix_CEL-seq2", "RNAmix_Sort-seq") 
+for (dataset in dataset_vec){
+  pdf(paste0(dataset,"_cluster_entropy.pdf"))
+p = ggplot(data=metrics_all[metrics_all$dataset==dataset,],aes(x=accuracy_entropy,y=purity_entropy,col=method,label=method))+
+  geom_point(show.legend = F)+
+  geom_text_repel(size=7,show.legend = F)+
+  scale_y_continuous(limits = c(0.,NA))+
+  scale_x_continuous(limits = c(0.,NA))+
+  labs(x="entropy of cluster accuracy",y="entropy of cluster purity")+
+  scale_color_manual(values=method_col)+
+    theme(text = element_text(size=20),panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(),axis.line = element_line(colour = "black"))
+print(p)
+dev.off()
+}
+
+```
+
+
+# Adjusted_rand_index
+
+
+```{r}
+
+
+get_clu_number = function(x){
+  if(metrics_all[metrics_all$dataset==x,"design"][1]=="cellmix"){
+    return(34)
+  }else if(metrics_all[metrics_all$dataset==x,"design"][1]=="RNAmix"){
+    return(7)
+  }else{
+    return(3)
+  }
+}
+
+dataset_vec = unique(metrics_all$dataset)
+for (dataset in dataset_vec){
+  pdf(paste0(dataset,"_cluster_ARI.pdf"))
+p = ggplot(data=metrics_all[metrics_all$dataset==dataset,],aes(x=cluster_number,y=ARI,col=method,label=method))+
+  geom_point(show.legend = F)+
+  geom_vline(xintercept=get_clu_number(dataset), linetype="dotted")+
+  geom_text_repel(size=7,show.legend = F)+
+  scale_y_continuous(limits = c(0.,NA))+
+  scale_x_continuous(limits = c(0.,NA))+
+  labs(x="number of cluster",y="adjusted random index (ARI)")+
+  scale_color_manual(values=method_col)+
+    theme(text = element_text(size=20),panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(),axis.line = element_line(colour = "black"))
+print(p)
+dev.off()
+}
+```
+
+
+
+```{r}
+pdf("PCA_RNAmix_celseq2_RaceID2.pdf")
+ggplot(data=as.data.frame(reducedDim(sce2_qc_cla,"PCA")),aes(x=PC1,y=PC2,col=as.factor(res_all_RNAmix$res_mix2$RaceID2)))+
+  geom_point(size=3,show.legend = F,alpha=0.8 )+
+  labs(x="PC1",y="PC2",title=paste0("(n= ",length(unique(res_all_RNAmix$res_mix2$RaceID2)),")"))+
+  #scale_color_manual(guide=FALSE,values = unique(col), limits = unique(sce_SC3_qc$group))+
+  theme(plot.title = element_text(hjust = 0.5),
+        text = element_text(size=20),panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(), axis.line = element_line(colour = "black"),
+axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+dev.off()
+```
+
+```{r}
+pdf("PCA_RNAmix_celseq2_Seurat.pdf")
+ggplot(data=as.data.frame(reducedDim(sce2_qc_cla,"PCA")),aes(x=PC1,y=PC2,col=as.factor(res_all_RNAmix$res_mix2$Seurat)))+
+  geom_point(size=3,show.legend = F,alpha=0.8 )+
+  labs(x="PC1",y="PC2",title=paste0("(n= ",length(unique(res_all_RNAmix$res_mix2$Seurat)),")"))+
+  #scale_color_manual(guide=FALSE,values = unique(col), limits = unique(sce_SC3_qc$group))+
+  theme(plot.title = element_text(hjust = 0.5),
+        text = element_text(size=20),panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(), axis.line = element_line(colour = "black"),
+axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+dev.off()
+```
+
+
+```{r}
+write.csv(metrics_all,file="clustering_comparison_results.csv")
+```
+
+
+#plot cluster trees as example
+
+```{r}
+library(clustree)
+data("iris_clusts")
+
+clustree(iris_clusts, prefix = "K")
+```
+

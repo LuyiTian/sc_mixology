@@ -1,0 +1,90 @@
+---
+title: "plot data integration"
+output: html_notebook
+---
+
+```{r}
+library(ggplot2)
+library(ggpubr)
+#load("~/Downloads/Analyses_results/Pure mixture vignette in draft/CellBench_puremix.results.RData")
+```
+
+```{r}
+plot(pca.combined$x[,1:2])
+```
+
+
+```{r}
+p1 = ggplot(data=NULL,aes(x=pca.combined$x[,1], y=pca.combined$x[,2],col=cell.line,shape=batch))+
+  geom_point(alpha=0.5,size=1.5)+
+  labs(x="PC1",y="PC2",col="cell line", shape="protocol",title="no correction")+
+  scale_color_manual(values=c("red","blue","green"))+
+  scale_shape_manual(values = c(0,8,25))+
+    theme(text = element_text(size=10),legend.text=element_text(size=8),panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(), axis.line = element_line(colour = "black"),
+axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+axis.text.y=element_blank(),
+        axis.ticks.y=element_blank(),
+plot.title = element_text(hjust = 0.5))
+
+p1
+```
+
+```{r}
+p2 = ggplot(data=NULL,aes(x=pca.MNN.select$x[,1], y=pca.MNN.select$x[,2],col=cell.line,shape=batch))+
+  geom_point(alpha=0.5,size=1.5)+
+  labs(x="PC1",y="PC2",col="cell line", shape="protocol",title="MNN")+
+  scale_color_manual(values=c("red","blue","green"))+
+  scale_shape_manual(values = c(0,8,25))+
+    theme(text = element_text(size=10),legend.text=element_text(size=8),panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(), axis.line = element_line(colour = "black"),
+axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+axis.text.y=element_blank(),
+        axis.ticks.y=element_blank(),
+plot.title = element_text(hjust = 0.5))
+
+p2
+```
+
+
+```{r}
+p3 = ggplot(data=NULL,aes(x=pca.scanorama$x[,1], y=pca.scanorama$x[,2],col=cell.line,shape=batch))+
+  geom_point(alpha=0.5,size=1.5)+
+  labs(x="PC1",y="PC2",col="cell line", shape="protocol",title="Scanorama")+
+  scale_color_manual(values=c("red","blue","green"))+
+  scale_shape_manual(values = c(0,8,25))+
+    theme(text = element_text(size=10),legend.text=element_text(size=8),panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(), axis.line = element_line(colour = "black"),
+axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+axis.text.y=element_blank(),
+        axis.ticks.y=element_blank(),
+plot.title = element_text(hjust = 0.5))
+
+p3
+```
+
+
+```{r}
+pdf("sc_correction_combined.pdf",width = 10,height = 4)
+ggarrange(p1, p2, p3, ncol = 3, nrow = 1, labels=c("A","B","C"), common.legend = TRUE)
+dev.off()
+```
+
+
+```{r}
+ggplot(data.plot, aes(x=type, y=silh.coeff, fill = type)) + geom_boxplot() + facet_grid(cols = vars(method)) + theme(axis.text.x = element_text(angle = 60, hjust = 1), strip.text = element_text(size=10)) + scale_fill_manual(values=c("#999999", "#E69F00")) + labs(x = "Cluster type", y = "Silhouette Coefficient", name="Cluster type") 
+```
+
+```{r}
+pdf("sc_int_results.pdf",width = 8,height = 4)
+ggplot(data.plot, aes(x=method, y=silh.coeff, fill = type))+
+  geom_boxplot()+
+  scale_fill_manual(values=c("#999999", "#E69F00")) + 
+  labs(x = "", y = "Silhouette Coefficient")+
+  theme(legend.position="top")
+dev.off()
+```
+
