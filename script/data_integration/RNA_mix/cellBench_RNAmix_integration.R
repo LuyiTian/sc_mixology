@@ -52,6 +52,9 @@ library(scRNAseq)  # to extract weights in zinbwave
 
 library(scMerge)
 
+library(reticulate)
+scanorama <- import('scanorama')
+
 library(kBET)
 
 library(cluster) # to calculate silhouette and ARI
@@ -399,11 +402,11 @@ ggplot(data.plot, aes(x = comp1, y = comp2, shape = factor(mix.type))) + geom_po
 
 
 ## ---- eval = eval_code---------------------------------------------------
-## # data available for upload (in python)
-## data.scanorama = read.csv('Data/scanorama-merged_cel-sort.csv', header = TRUE, row.names = 1)
-## #dim(data.scanorama)
+## scanorama.corrected = scanorama$correct(list(t(logcounts(CELseq.norm)[high.var.genes.scran,]), t(logcounts(SORTseq.norm)[high.var.genes.scran,])), list(high.var.genes.scran, high.var.genes.scran), return_dense = TRUE)
 ## 
-## pca.scanorama = mixOmics::pca(t(data.scanorama), ncomp = 2)
+## data.scanorama = Reduce(rbind, scanorama.corrected[[1]])
+## 
+## pca.scanorama = mixOmics::pca(data.scanorama, ncomp = 2)
 
 ## ----scanorama-----------------------------------------------------------
 # color indicates protocol
