@@ -52,6 +52,9 @@ library(scRNAseq)  # to extract weights in zinbwave
 
 library(scMerge)
 
+library(reticulate)
+scanorama <- import('scanorama')
+
 library(kBET)
 
 library(cluster) # to calculate silhouette and ARI
@@ -391,15 +394,15 @@ ggplot(data.plot, aes(x = comp1, y = comp2, shape = factor(cell.line))) + geom_p
 ##                 shape_by = "cell")
 
 ## ---- eval = eval_code---------------------------------------------------
-## # data available for upload (in python)
-## data.scanorama = read.csv('Data/scanorama_merged_cellbench.csv', header = TRUE, row.names = 1)
-## #dim(data.scanorama)
+## scanorama.corrected = scanorama$correct(list(t(logcounts(sc10x.norm)[high.var.genes.scran,]), t(logcounts(sccel.norm)[high.var.genes.scran,]), t(logcounts(scdrop.norm)[high.var.genes.scran,])), list(high.var.genes.scran, high.var.genes.scran, high.var.genes.scran), return_dense = TRUE)
 ## 
-## pca.scanorama = mixOmics::pca(t(data.scanorama), ncomp = 2)
+## data.scanorama = Reduce(rbind, scanorama.corrected[[1]])
+## 
+## pca.scanorama = mixOmics::pca(data.scanorama, ncomp = 2)
 
 ## ----scanorama-----------------------------------------------------------
 # color indicates protocol
-plotIndiv(pca.scanorama, pch = cell.line, ind.names =FALSE, group = batch, legend = FALSE, legend.title = 'Protocol', legend.title.pch = 'Cell line', title = 'Scanorama', xlim = c(-0.2, 0.2), ylim = c(-0.2, 0.2))
+plotIndiv(pca.scanorama, pch = cell.line, ind.names =FALSE, group = batch, legend = FALSE, legend.title = 'Protocol', legend.title.pch = 'Cell line', title = 'Scanorama', xlim = c(-0.4, 0.4), ylim = c(-0.3, 0.3))
 
 ## ---- eval = eval_code---------------------------------------------------
 ## # on original data
