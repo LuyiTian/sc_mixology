@@ -21,6 +21,8 @@ You can find R object files in the [data](https://github.com/LuyiTian/CellBench_
 load("data/sincell_with_class.RData")
 ```
 
+This will create three variables: `sce10x_qc`, `sce4_qc`, and `scedrop_qc_qc`. `sce10x_qc` contains the read counts after quality control processing from the 10x platform. `sce4_qc` contains the read counts after quality control processing from the CEL-seq2 platform. `scedrop_qc_qc` contains the read counts after quality control proessing from the Drop-seq platform.
+
 ## Counts
 
 To access count data from a SingleCellExperiment object, use the `counts(sce)` function:
