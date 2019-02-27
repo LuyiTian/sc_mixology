@@ -1,0 +1,62 @@
+---
+title: "BASiCS normalization on RNAmix"
+output: html_notebook
+---
+
+```{r}
+setwd("/stornext/General/data/user_managed/grpu_mritchie_1/SCmixology/analysis_for_resubmit")
+library(BASiCS)
+library(scater)
+library(scran)
+
+log_file =paste("log_file/BASiCS_norm_sc_spike",format(Sys.time(), "%a_%b_%d"),".txt",sep = ".")
+cat(paste(format(Sys.time(), "%a %b %d %X %Y"), "start preprocessing...\n"), file = log_file, append = TRUE)
+```
+
+The BASiCS normalization is time comsuming so we run it separately.
+
+## prepare dataset and preprocessing
+```{r}
+load("CellBench_data/data/sincell_with_class.RData")
+
+gene_filter = function(sce){
+  keep1 = (apply(counts(sce), 1, function(x) mean(x[x>0])) > 1.1)  # average count larger than 1.1
+  keep2 = (rowSums(counts(sce)>0) > 10) # expressed in more than 10 cells
+  sp_keep = colSums(counts(sce)[isSpike(sce),])>0
+  sce = sce[(keep1 & keep2), sp_keep]
+  return(sce)
+}
+sce4_qc = gene_filter(sce4_qc)
+
+cms_095046 <- read.delim("cms_095046.txt", stringsAsFactors = FALSE)
+method_name = "BASiCS"
+method_type = "norm"
+```
+
+
+```{r}
+sce4_qc <- sce4_qc[order(isSpike(sce4_qc)),]
+SpikeInfo = data.frame(ERCCID=cms_095046$ERCC.ID, count=cms_095046$concentration.in.Mix.1..attomoles.ul.)
+SpikeInfo = SpikeInfo[SpikeInfo$ERCCID %in% rownames(sce4_qc)[isSpike(sce4_qc)],]
+rownames(SpikeInfo) = SpikeInfo$ERCCID
+SpikeInfo[,2] = SpikeInfo[,2]/(166.0541)
+metadata(sce4_qc) <- list(SpikeInput = SpikeInfo[rownames(sce4_qc)[isSpike(sce4_qc)],2])
+
+cat(paste(format(Sys.time(), "%a %b %d %X %Y"), "start MCMC.\n"), file = log_file, append = TRUE)
+tp = system.time({
+ChainNoSpikes <- BASiCS_MCMC(Data = sce4_qc, N = 5000, 
+                             Thin = 10, Burn = 500, 
+                             WithSpikes = TRUE,Regression = TRUE,
+                             PrintProgress = FALSE,
+                             StoreChains=TRUE,
+                             RunName="sc_CELseq2_BASiCS_spike")
+})
+cat(paste(format(Sys.time(), "%a %b %d %X %Y"), "MCMC finished.\n"), file = log_file, append = TRUE)
+
+DenoisedCounts <- BASiCS_DenoisedCounts(Data = sce4_qc, Chain = ChainNoSpikes)
+logcounts(sce4_qc) = log2(DenoisedCounts+1)
+metadata(sce4_qc)$running_time = data.frame(method=method_name,method_type=method_type,time=unname(tp)[1])
+
+saveRDS(sce4_qc,file="sc_CELseq2_BASiCS_Spike_SCE.Rds")
+cat(paste(format(Sys.time(), "%a %b %d %X %Y"), "sc_CELseq2 Done! save the normalized count to file.\n"), file = log_file, append = TRUE)
+```

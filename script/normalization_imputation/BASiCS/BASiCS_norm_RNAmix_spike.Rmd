@@ -1,0 +1,322 @@
+---
+title: "BASiCS normalization on RNAmix"
+output: html_notebook
+---
+
+```{r}
+setwd("/stornext/General/data/user_managed/grpu_mritchie_1/SCmixology/analysis_for_resubmit")
+library(BASiCS)
+library(scater)
+library(scran)
+library(CellBench)
+log_file =paste("log_file/normimpute_mix_BASiCS",format(Sys.time(), "%a_%b_%d"),"txt",sep = ".")
+cat(paste(format(Sys.time(), "%a %b %d %X %Y"), "start preprocessing...\n"), file = log_file, append = TRUE)
+method_name = "BASiCS"
+method_type = "norm"
+```
+
+```{r}
+library(SAVER)
+library(DrImpute)
+source("knn-smoothing-master/knn_smooth.R")
+
+no_impute = function(sce){
+  tp = system.time({sce1=sce})
+  method_name = "no_imputation"
+  method_type = "imputation"
+  if (!is.null(metadata(sce)$running_time)){
+    metadata(sce)$running_time = rbind(metadata(sce)$running_time, data.frame(method=method_name, method_type=method_type, time=unname(tp)[1]))
+  }else{
+    metadata(sce)$running_time = data.frame(method=method_name,method_type=method_type,time=unname(tp)[1])
+  }
+  return(sce1)
+}
+
+knn_smooth2 = function(sce){
+  tp = system.time({
+    logcounts(sce) = knn_smoothing(logcounts(sce), 16)
+  })
+  
+  method_name = "knn_smooth2"
+  method_type = "imputation"
+  if (!is.null(metadata(sce)$running_time)){
+    metadata(sce)$running_time = rbind(metadata(sce)$running_time, data.frame(method=method_name, method_type=method_type, time=unname(tp)[1]))
+  }else{
+    metadata(sce)$running_time = data.frame(method=method_name,method_type=method_type,time=unname(tp)[1])
+  }
+  return(sce)
+}
+
+DrImpute_impute = function(sce){
+  tp = system.time({
+    logcounts(sce) <- DrImpute(logcounts(sce))
+  })
+  
+  method_name = "DrImpute"
+  method_type = "imputation"
+  if (!is.null(metadata(sce)$running_time)){
+    metadata(sce)$running_time = rbind(metadata(sce)$running_time, data.frame(method=method_name, method_type=method_type, time=unname(tp)[1]))
+  }else{
+    metadata(sce)$running_time = data.frame(method=method_name,method_type=method_type,time=unname(tp)[1])
+  }
+  return(sce)
+}
+
+SAVER_impute = function(sce){
+  tp = system.time({
+    try_res = try({
+  logcounts(sce) = log2(saver(2^logcounts(sce)-1, ncores=1, size.factor=1, estimates.only = TRUE)+1)
+    })
+  })
+    if (class(try_res) == "try-error") {
+      print(try_res)
+    }
+  
+  method_name = "SAVER"
+  method_type = "imputation"
+  if (!is.null(metadata(sce)$running_time)){
+    metadata(sce)$running_time = rbind(metadata(sce)$running_time, data.frame(method=method_name, method_type=method_type, time=unname(tp)[1]))
+  }else{
+    metadata(sce)$running_time = data.frame(method=method_name,method_type=method_type,time=unname(tp)[1])
+  }
+  return(sce)
+}
+
+impute_method <- list(
+  no_impute=no_impute,
+  knn_smooth2=knn_smooth2,
+  DrImpute=DrImpute_impute,
+  SAVER=SAVER_impute
+)
+```
+
+
+The BASiCS normalization is time comsuming so we run it separately.
+
+## prepare dataset and preprocessing
+```{r}
+load("CellBench_data/data/mRNAmix_qc.RData")
+
+gene_filter = function(sce){
+  keep1 = (apply(counts(sce), 1, function(x) mean(x[x>0])) > 1.1)  # average count larger than 1.1
+  keep2 = (rowSums(counts(sce)>0) > 10) # expressed in more than 10 cells
+  sp_keep = colSums(counts(sce)[isSpike(sce),])>0
+  sce = sce[(keep1 & keep2), sp_keep]
+  return(sce)
+}
+sce2_qc = gene_filter(sce2_qc)
+sce8_qc = gene_filter(sce8_qc)
+
+sce2_qc$group = paste(sce2_qc$H2228_prop,sce2_qc$H1975_prop,sce2_qc$HCC827_prop)
+sce8_qc$group = paste(sce8_qc$H2228_prop,sce8_qc$H1975_prop,sce8_qc$HCC827_prop)
+
+
+load("CellBench_data/data/9cellmix_qc.RData")
+
+sce_SC1_qc$group = paste(sce_SC1_qc$H2228,sce_SC1_qc$H1975,sce_SC1_qc$HCC827)
+sce_SC2_qc$group = paste(sce_SC2_qc$H2228,sce_SC2_qc$H1975,sce_SC2_qc$HCC827)
+sce_SC3_qc$group = paste(sce_SC3_qc$H2228,sce_SC3_qc$H1975,sce_SC3_qc$HCC827)
+sce_SC4_qc$group = paste(sce_SC4_qc$H2228,sce_SC4_qc$H1975,sce_SC4_qc$HCC827)
+
+sce_SC1_qc = gene_filter(sce_SC1_qc)
+sce_SC2_qc = gene_filter(sce_SC2_qc)
+sce_SC3_qc = gene_filter(sce_SC3_qc)
+sce_SC4_qc = gene_filter(sce_SC4_qc)
+
+
+cms_095046 <- read.delim("cms_095046.txt", stringsAsFactors = FALSE)
+```
+
+
+```{r}
+sce2_qc <- sce2_qc[order(isSpike(sce2_qc)),]
+SpikeInfo = data.frame(ERCCID=cms_095046$ERCC.ID, count=cms_095046$concentration.in.Mix.1..attomoles.ul.)
+SpikeInfo = SpikeInfo[SpikeInfo$ERCCID %in% rownames(sce2_qc)[isSpike(sce2_qc)],]
+rownames(SpikeInfo) = SpikeInfo$ERCCID
+SpikeInfo[,2] = SpikeInfo[,2]/166.0541
+metadata(sce2_qc) <- list(SpikeInput = SpikeInfo[rownames(sce2_qc)[isSpike(sce2_qc)],2])
+
+cat(paste(format(Sys.time(), "%a %b %d %X %Y"), "start MCMC."), file = log_file, append = TRUE)
+ChainNoSpikes <- BASiCS_MCMC(Data = sce2_qc, N = 5000, 
+                             Thin = 10, Burn = 500, 
+                             WithSpikes = TRUE,Regression = TRUE,
+                             PrintProgress = FALSE,
+                             StoreChains=TRUE,
+                             RunName="RNAmix_CELseq2_BASiCS_spike")
+cat(paste(format(Sys.time(), "%a %b %d %X %Y"), "MCMC finished."), file = log_file, append = TRUE)
+metadata(sce2_qc)$running_time = data.frame(method=method_name,method_type=method_type,time=unname(tp)[1])
+
+DenoisedCounts <- BASiCS_DenoisedCounts(Data = sce2_qc, Chain = ChainNoSpikes)
+logcounts(sce2_qc) = log2(DenoisedCounts+1)
+
+saveRDS(sce2_qc,file="RNAmix_CELseq2_BASiCS_Spike_SCE.Rds")
+cat(paste(format(Sys.time(), "%a %b %d %X %Y"), "RNAmix_CELseq2 Done! save the normalized count to file.\n"), file = log_file, append = TRUE)
+```
+
+
+
+```{r}
+sce8_qc <- sce8_qc[order(isSpike(sce8_qc)),]
+SpikeInfo = data.frame(ERCCID=cms_095046$ERCC.ID, count=cms_095046$concentration.in.Mix.1..attomoles.ul.)
+SpikeInfo = SpikeInfo[SpikeInfo$ERCCID %in% rownames(sce8_qc)[isSpike(sce8_qc)],]
+rownames(SpikeInfo) = SpikeInfo$ERCCID
+SpikeInfo[,2] = SpikeInfo[,2]/(166.0541/2) # we put 2 times more spike-ins in the SORT-seq protocol
+metadata(sce8_qc) <- list(SpikeInput = SpikeInfo[rownames(sce8_qc)[isSpike(sce8_qc)],2])
+
+cat(paste(format(Sys.time(), "%a %b %d %X %Y"), "start MCMC."), file = log_file, append = TRUE)
+tp = system.time({
+ChainNoSpikes <- BASiCS_MCMC(Data = sce8_qc, N = 5000, 
+                             Thin = 10, Burn = 500, 
+                             WithSpikes = TRUE,Regression = TRUE,
+                             PrintProgress = FALSE,
+                             StoreChains=TRUE,
+                             RunName="RNAmix_SORTseq_BASiCS_spike")
+})
+cat(paste(format(Sys.time(), "%a %b %d %X %Y"), "MCMC finished."), file = log_file, append = TRUE)
+
+DenoisedCounts <- BASiCS_DenoisedCounts(Data = sce8_qc, Chain = ChainNoSpikes)
+logcounts(sce8_qc) = log2(DenoisedCounts+1)
+metadata(sce8_qc)$running_time = data.frame(method=method_name,method_type=method_type,time=unname(tp)[1])
+
+saveRDS(sce8_qc,file="RNAmix_SORTseq_BASiCS_Spike_SCE.Rds")
+cat(paste(format(Sys.time(), "%a %b %d %X %Y"), "RNAmix_SORTseq Done! save the normalized count to file."), file = log_file, append = TRUE)
+```
+
+
+
+```{r}
+sce_SC1_qc <- sce_SC1_qc[order(isSpike(sce_SC1_qc)),]
+SpikeInfo = data.frame(ERCCID=cms_095046$ERCC.ID, count=cms_095046$concentration.in.Mix.1..attomoles.ul.)
+SpikeInfo = SpikeInfo[SpikeInfo$ERCCID %in% rownames(sce_SC1_qc)[isSpike(sce_SC1_qc)],]
+rownames(SpikeInfo) = SpikeInfo$ERCCID
+SpikeInfo[,2] = SpikeInfo[,2]/(166.0541*9) # 1/9 sampled for each well.
+metadata(sce_SC1_qc) <- list(SpikeInput = SpikeInfo[rownames(sce_SC1_qc)[isSpike(sce_SC1_qc)],2])
+
+cat(paste(format(Sys.time(), "%a %b %d %X %Y"), "start MCMC.\n"), file = log_file, append = TRUE)
+tp = system.time({
+ChainNoSpikes <- BASiCS_MCMC(Data = sce_SC1_qc, N = 5000, 
+                             Thin = 10, Burn = 500, 
+                             WithSpikes = TRUE,Regression = TRUE,
+                             PrintProgress = FALSE,
+                             StoreChains=TRUE,
+                             RunName="cellmix1_BASiCS_spike")
+})
+cat(paste(format(Sys.time(), "%a %b %d %X %Y"), "MCMC finished.\n"), file = log_file, append = TRUE)
+
+DenoisedCounts <- BASiCS_DenoisedCounts(Data = sce_SC1_qc, Chain = ChainNoSpikes)
+logcounts(sce_SC1_qc) = log2(DenoisedCounts+1)
+metadata(sce_SC1_qc)$running_time = data.frame(method=method_name,method_type=method_type,time=unname(tp)[1])
+
+saveRDS(sce_SC1_qc,file="cellmix1_BASiCS_Spike_SCE.Rds")
+cat(paste(format(Sys.time(), "%a %b %d %X %Y"), "cellmix1 Done! save the normalized count to file.\n"), file = log_file, append = TRUE)
+```
+
+
+
+```{r}
+sce_SC2_qc <- sce_SC2_qc[order(isSpike(sce_SC2_qc)),]
+SpikeInfo = data.frame(ERCCID=cms_095046$ERCC.ID, count=cms_095046$concentration.in.Mix.1..attomoles.ul.)
+SpikeInfo = SpikeInfo[SpikeInfo$ERCCID %in% rownames(sce_SC2_qc)[isSpike(sce_SC2_qc)],]
+rownames(SpikeInfo) = SpikeInfo$ERCCID
+SpikeInfo[,2] = SpikeInfo[,2]/(166.0541*9)
+metadata(sce_SC2_qc) <- list(SpikeInput = SpikeInfo[rownames(sce_SC2_qc)[isSpike(sce_SC2_qc)],2])
+
+cat(paste(format(Sys.time(), "%a %b %d %X %Y"), "start MCMC.\n"), file = log_file, append = TRUE)
+tp = system.time({
+ChainNoSpikes <- BASiCS_MCMC(Data = sce_SC2_qc, N = 5000, 
+                             Thin = 10, Burn = 500, 
+                             WithSpikes = TRUE,Regression = TRUE,
+                             PrintProgress = FALSE,
+                             StoreChains=TRUE,
+                             RunName="cellmix2_BASiCS_spike")
+})
+cat(paste(format(Sys.time(), "%a %b %d %X %Y"), "MCMC finished.\n"), file = log_file, append = TRUE)
+
+DenoisedCounts <- BASiCS_DenoisedCounts(Data = sce_SC2_qc, Chain = ChainNoSpikes)
+logcounts(sce_SC2_qc) = log2(DenoisedCounts+1)
+metadata(sce_SC2_qc)$running_time = data.frame(method=method_name,method_type=method_type,time=unname(tp)[1])
+
+saveRDS(sce_SC2_qc,file="cellmix2_BASiCS_Spike_SCE.Rds")
+cat(paste(format(Sys.time(), "%a %b %d %X %Y"), "cellmix2 Done! save the normalized count to file.\n"), file = log_file, append = TRUE)
+```
+
+
+```{r}
+sce_SC3_qc <- sce_SC3_qc[order(isSpike(sce_SC3_qc)),]
+SpikeInfo = data.frame(ERCCID=cms_095046$ERCC.ID, count=cms_095046$concentration.in.Mix.1..attomoles.ul.)
+SpikeInfo = SpikeInfo[SpikeInfo$ERCCID %in% rownames(sce_SC3_qc)[isSpike(sce_SC3_qc)],]
+rownames(SpikeInfo) = SpikeInfo$ERCCID
+SpikeInfo[,2] = SpikeInfo[,2]/(166.0541*9)
+metadata(sce_SC3_qc) <- list(SpikeInput = SpikeInfo[rownames(sce_SC3_qc)[isSpike(sce_SC3_qc)],2])
+
+cat(paste(format(Sys.time(), "%a %b %d %X %Y"), "start MCMC.\n"), file = log_file, append = TRUE)
+tp = system.time({
+ChainNoSpikes <- BASiCS_MCMC(Data = sce_SC3_qc, N = 5000, 
+                             Thin = 10, Burn = 500, 
+                             WithSpikes = TRUE,Regression = TRUE,
+                             PrintProgress = FALSE,
+                             StoreChains=TRUE,
+                             RunName="cellmix3_BASiCS_spike")
+})
+cat(paste(format(Sys.time(), "%a %b %d %X %Y"), "MCMC finished.\n"), file = log_file, append = TRUE)
+
+DenoisedCounts <- BASiCS_DenoisedCounts(Data = sce_SC3_qc, Chain = ChainNoSpikes)
+logcounts(sce_SC3_qc) = log2(DenoisedCounts+1)
+metadata(sce_SC3_qc)$running_time = data.frame(method=method_name,method_type=method_type,time=unname(tp)[1])
+
+saveRDS(sce_SC3_qc,file="cellmix3_BASiCS_Spike_SCE.Rds")
+cat(paste(format(Sys.time(), "%a %b %d %X %Y"), "cellmix3 Done! save the normalized count to file.\n"), file = log_file, append = TRUE)
+```
+
+
+
+```{r}
+sce_SC4_qc <- sce_SC4_qc[order(isSpike(sce_SC4_qc)),]
+SpikeInfo = data.frame(ERCCID=cms_095046$ERCC.ID, count=cms_095046$concentration.in.Mix.1..attomoles.ul.)
+SpikeInfo = SpikeInfo[SpikeInfo$ERCCID %in% rownames(sce_SC4_qc)[isSpike(sce_SC4_qc)],]
+rownames(SpikeInfo) = SpikeInfo$ERCCID
+SpikeInfo[,2] = SpikeInfo[,2]/(166.0541*3)
+metadata(sce_SC4_qc) <- list(SpikeInput = SpikeInfo[rownames(sce_SC4_qc)[isSpike(sce_SC4_qc)],2])
+
+cat(paste(format(Sys.time(), "%a %b %d %X %Y"), "start MCMC.\n"), file = log_file, append = TRUE)
+tp = system.time({
+ChainNoSpikes <- BASiCS_MCMC(Data = sce_SC4_qc, N = 5000, 
+                             Thin = 10, Burn = 500, 
+                             WithSpikes = TRUE,Regression = TRUE,
+                             PrintProgress = FALSE,
+                             StoreChains=TRUE,
+                             RunName="cellmix4_BASiCS_spike")
+})
+cat(paste(format(Sys.time(), "%a %b %d %X %Y"), "MCMC finished.\n"), file = log_file, append = TRUE)
+
+DenoisedCounts <- BASiCS_DenoisedCounts(Data = sce_SC4_qc, Chain = ChainNoSpikes)
+logcounts(sce_SC4_qc) = log2(DenoisedCounts+1)
+metadata(sce_SC4_qc)$running_time = data.frame(method=method_name,method_type=method_type,time=unname(tp)[1])
+
+saveRDS(sce_SC4_qc,file="cellmix4_BASiCS_Spike_SCE.Rds")
+cat(paste(format(Sys.time(), "%a %b %d %X %Y"), "cellmix4 Done! save the normalized count to file.\n"), file = log_file, append = TRUE)
+```
+
+
+
+```{r}
+datasets <- list(
+    cellmix1=sce_SC1_qc,
+    cellmix2=sce_SC2_qc,
+    cellmix3=sce_SC3_qc,
+    cellmix4=sce_SC4_qc,
+    RNAmix_CELseq2=sce2_qc,
+    RNAmix_Sortseq=sce8_qc
+)
+
+cat(paste(format(Sys.time(), "%a %b %d %X %Y"), "start to apply imputation methods...\n"), file = log_file, append = TRUE)
+res2 <- datasets %>%
+    apply_methods(impute_method)
+```
+
+```{r}
+saveRDS(res2, file="/stornext/General/data/user_managed/grpu_mritchie_1/SCmixology/analysis_for_resubmit/rdata/mix_all_BASiCS_after_imputation.Rds")
+```
+
+
+

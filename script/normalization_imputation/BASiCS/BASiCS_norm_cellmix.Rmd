@@ -1,0 +1,72 @@
+---
+title: "BASiCS normalization on cellmix"
+output: html_notebook
+---
+
+```{r}
+library(BASiCS)
+library(scater)
+library(scran)
+```
+
+The BASiCS normalization is time comsuming so we run it separately.
+
+## prepare dataset and preprocessing
+```{r}
+load("CellBench_data/data/9cellmix_qc.RData")
+
+gene_filter = function(sce){
+  keep1 = (apply(counts(sce), 1, function(x) mean(x[x>0])) > 1.1)  # average count larger than 1.1
+  keep2 = (rowSums(counts(sce)>0) > 10) # expressed in more than 10 cells
+  sce = sce[(keep1 & keep2), ]
+  return(sce)
+}
+
+sce_SC1_qc$BatchInfo="cellmix1"
+sce_SC2_qc$BatchInfo="cellmix2"
+sce_SC3_qc$BatchInfo="cellmix3"
+sce_SC4_qc$BatchInfo="cellmix4"
+
+datasets <- list(
+  cellmix1=sce_SC1_qc,
+  cellmix2=sce_SC2_qc,
+  cellmix3=sce_SC3_qc,
+  cellmix4=sce_SC4_qc
+)
+
+datasets = lapply(datasets,gene_filter)
+
+comm_genes = Reduce(intersect, lapply(datasets, rownames))
+
+fix_col_name = function(sce){
+  colnames(sce) = paste(sce$batch, colnames(sce),sep="_")
+  sce
+}
+datasets = lapply(datasets,fix_col_name)
+
+datasets = lapply(datasets, "[", comm_genes)
+
+sce_combine = Reduce(cbind,datasets)
+```
+
+
+```{r}
+ChainNoSpikes <- BASiCS_MCMC(Data = sce_combine, N = 5000, 
+                             Thin = 10, Burn = 500, 
+                             WithSpikes = FALSE,  Regression = FALSE,
+                             PrintProgress = FALSE,
+                             StoreChains=TRUE,
+                             RunName="cellmix_BASiCS_norm")
+```
+
+
+```{r}
+DenoisedCounts <- BASiCS_DenoisedCounts(Data = sce_combine, Chain = ChainNoSpikes)
+logcounts(sce_combine) = log2(DenoisedCounts+1)
+
+saveRDS(sce_combine,file="cellmix_BASiCS_noSpike.Rds")
+```
+
+
+
+

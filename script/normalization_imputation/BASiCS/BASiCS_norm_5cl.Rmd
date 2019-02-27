@@ -1,0 +1,121 @@
+---
+title: "BASiCS normalization on single cell 5 cell line CEL-seq2 data"
+output: html_notebook
+---
+
+```{r}
+setwd("/stornext/General/data/user_managed/grpu_mritchie_1/SCmixology/analysis_for_resubmit")
+library(BASiCS)
+library(scater)
+library(scran)
+
+log_file =paste("log_file/BASiCS_norm_sc_5cl_spike",format(Sys.time(), "%a_%b_%d"),".txt",sep = ".")
+cat(paste(format(Sys.time(), "%a %b %d %X %Y"), "start preprocessing...\n"), file = log_file, append = TRUE)
+```
+
+The BASiCS normalization is time comsuming so we run it separately.
+
+## prepare dataset and preprocessing
+```{r}
+load("/stornext/General/data/user_managed/grpu_mritchie_1/SCmixology/analysis_for_resubmit/sincell_with_class_5cl.RData")
+sce_sc_10x_5cl_qc = NULL # save RAM
+
+gene_filter = function(sce){
+  keep1 = (apply(counts(sce), 1, function(x) mean(x[x>0])) > 1.1)  # average count larger than 1.1
+  keep2 = (rowSums(counts(sce)>0) > 10) # expressed in more than 10 cells
+  sp_keep = colSums(counts(sce)[isSpike(sce),])>0
+  sce = sce[(keep1 & keep2), sp_keep]
+  return(sce)
+}
+sc_Celseq2_5cl_p1 = gene_filter(sc_Celseq2_5cl_p1)
+sc_Celseq2_5cl_p2 = gene_filter(sc_Celseq2_5cl_p2)
+sc_Celseq2_5cl_p3 = gene_filter(sc_Celseq2_5cl_p3)
+
+cms_095046 <- read.delim("cms_095046.txt", stringsAsFactors = FALSE)
+method_name = "BASiCS"
+method_type = "norm"
+```
+
+
+```{r}
+sc_Celseq2_5cl_p2 <- sc_Celseq2_5cl_p2[order(isSpike(sc_Celseq2_5cl_p2)),]
+SpikeInfo = data.frame(ERCCID=cms_095046$ERCC.ID, count=cms_095046$concentration.in.Mix.1..attomoles.ul.)
+SpikeInfo = SpikeInfo[SpikeInfo$ERCCID %in% rownames(sc_Celseq2_5cl_p2)[isSpike(sc_Celseq2_5cl_p2)],]
+rownames(SpikeInfo) = SpikeInfo$ERCCID
+SpikeInfo[,2] = SpikeInfo[,2]/(166.0541)
+metadata(sc_Celseq2_5cl_p2) <- list(SpikeInput = SpikeInfo[rownames(sc_Celseq2_5cl_p2)[isSpike(sc_Celseq2_5cl_p2)],2])
+
+cat(paste(format(Sys.time(), "%a %b %d %X %Y"), "start MCMC.\n"), file = log_file, append = TRUE)
+tp = system.time({
+ChainNoSpikes <- BASiCS_MCMC(Data = sc_Celseq2_5cl_p2, N = 5000, 
+                             Thin = 10, Burn = 500, 
+                             WithSpikes = TRUE,Regression = TRUE,
+                             PrintProgress = FALSE,
+                             StoreChains=TRUE,
+                             RunName="sc_CELseq2_BASiCS_spike")
+})
+cat(paste(format(Sys.time(), "%a %b %d %X %Y"), "MCMC finished.\n"), file = log_file, append = TRUE)
+
+DenoisedCounts <- BASiCS_DenoisedCounts(Data = sc_Celseq2_5cl_p2, Chain = ChainNoSpikes)
+logcounts(sc_Celseq2_5cl_p2) = log2(DenoisedCounts+1)
+metadata(sc_Celseq2_5cl_p2)$running_time = data.frame(method=method_name,method_type=method_type,time=unname(tp)[1])
+
+saveRDS(sc_Celseq2_5cl_p2,file="sc_Celseq2_5cl_p2_BASiCS_SCE.Rds")
+cat(paste(format(Sys.time(), "%a %b %d %X %Y"), "sc_CELseq2 5cl p2 Done! save the normalized count to file.\n"), file = log_file, append = TRUE)
+```
+
+
+```{r}
+sc_Celseq2_5cl_p1 <- sc_Celseq2_5cl_p1[order(isSpike(sc_Celseq2_5cl_p1)),]
+SpikeInfo = data.frame(ERCCID=cms_095046$ERCC.ID, count=cms_095046$concentration.in.Mix.1..attomoles.ul.)
+SpikeInfo = SpikeInfo[SpikeInfo$ERCCID %in% rownames(sc_Celseq2_5cl_p1)[isSpike(sc_Celseq2_5cl_p1)],]
+rownames(SpikeInfo) = SpikeInfo$ERCCID
+SpikeInfo[,2] = SpikeInfo[,2]/(166.0541)
+metadata(sc_Celseq2_5cl_p1) <- list(SpikeInput = SpikeInfo[rownames(sc_Celseq2_5cl_p1)[isSpike(sc_Celseq2_5cl_p1)],2])
+
+cat(paste(format(Sys.time(), "%a %b %d %X %Y"), "start MCMC.\n"), file = log_file, append = TRUE)
+tp = system.time({
+ChainNoSpikes <- BASiCS_MCMC(Data = sc_Celseq2_5cl_p1, N = 5000, 
+                             Thin = 10, Burn = 500, 
+                             WithSpikes = TRUE,Regression = TRUE,
+                             PrintProgress = FALSE,
+                             StoreChains=TRUE,
+                             RunName="sc_CELseq2_BASiCS_spike")
+})
+cat(paste(format(Sys.time(), "%a %b %d %X %Y"), "MCMC finished.\n"), file = log_file, append = TRUE)
+
+DenoisedCounts <- BASiCS_DenoisedCounts(Data = sc_Celseq2_5cl_p1, Chain = ChainNoSpikes)
+logcounts(sc_Celseq2_5cl_p1) = log2(DenoisedCounts+1)
+metadata(sc_Celseq2_5cl_p1)$running_time = data.frame(method=method_name,method_type=method_type,time=unname(tp)[1])
+
+saveRDS(sc_Celseq2_5cl_p1,file="sc_CELseq2_5cl_p1_BASiCS_SCE.Rds")
+cat(paste(format(Sys.time(), "%a %b %d %X %Y"), "sc_CELseq2 5cl p1 Done! save the normalized count to file.\n"), file = log_file, append = TRUE)
+```
+
+
+```{r}
+sc_Celseq2_5cl_p3 <- sc_Celseq2_5cl_p3[order(isSpike(sc_Celseq2_5cl_p3)),]
+SpikeInfo = data.frame(ERCCID=cms_095046$ERCC.ID, count=cms_095046$concentration.in.Mix.1..attomoles.ul.)
+SpikeInfo = SpikeInfo[SpikeInfo$ERCCID %in% rownames(sc_Celseq2_5cl_p3)[isSpike(sc_Celseq2_5cl_p3)],]
+rownames(SpikeInfo) = SpikeInfo$ERCCID
+SpikeInfo[,2] = SpikeInfo[,2]/(166.0541)
+metadata(sc_Celseq2_5cl_p3) <- list(SpikeInput = SpikeInfo[rownames(sc_Celseq2_5cl_p3)[isSpike(sc_Celseq2_5cl_p3)],2])
+
+cat(paste(format(Sys.time(), "%a %b %d %X %Y"), "start MCMC.\n"), file = log_file, append = TRUE)
+tp = system.time({
+ChainNoSpikes <- BASiCS_MCMC(Data = sc_Celseq2_5cl_p3, N = 5000, 
+                             Thin = 10, Burn = 500, 
+                             WithSpikes = TRUE,Regression = TRUE,
+                             PrintProgress = FALSE,
+                             StoreChains=TRUE,
+                             RunName="sc_CELseq2_BASiCS_spike")
+})
+cat(paste(format(Sys.time(), "%a %b %d %X %Y"), "MCMC finished.\n"), file = log_file, append = TRUE)
+
+DenoisedCounts <- BASiCS_DenoisedCounts(Data = sc_Celseq2_5cl_p3, Chain = ChainNoSpikes)
+logcounts(sc_Celseq2_5cl_p3) = log2(DenoisedCounts+1)
+metadata(sc_Celseq2_5cl_p3)$running_time = data.frame(method=method_name,method_type=method_type,time=unname(tp)[1])
+
+saveRDS(sc_Celseq2_5cl_p3,file="sc_Celseq2_5cl_p3_BASiCS_SCE.Rds")
+cat(paste(format(Sys.time(), "%a %b %d %X %Y"), "sc_CELseq2 5cl p3 Done! save the normalized count to file.\n"), file = log_file, append = TRUE)
+```

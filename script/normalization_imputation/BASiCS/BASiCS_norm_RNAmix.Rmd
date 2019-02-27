@@ -1,0 +1,76 @@
+---
+title: "BASiCS normalization on RNAmix"
+output: html_notebook
+---
+
+```{r}
+setwd("/stornext/General/data/user_managed/grpu_mritchie_1/SCmixology/analysis_for_resubmit")
+library(BASiCS)
+library(scater)
+library(scran)
+
+log_file = "log_file/BASiCS_norm_RNAmix_22.Dec.txt"
+```
+
+The BASiCS normalization is time comsuming so we run it separately.
+
+## prepare dataset and preprocessing
+```{r}
+load("CellBench_data/data/mRNAmix_qc.RData")
+
+gene_filter = function(sce){
+  keep1 = (apply(counts(sce), 1, function(x) mean(x[x>0])) > 1.1)  # average count larger than 1.1
+  keep2 = (rowSums(counts(sce)>0) > 10) # expressed in more than 10 cells
+  sce = sce[(keep1 & keep2), ]
+  return(sce)
+}
+
+sce2_qc$BatchInfo="RNAmix_CELseq2"
+sce8_qc$BatchInfo="RNAmix_SORTseq"
+
+
+datasets <- list(
+  RNAmix_CELseq2=sce2_qc,
+  RNAmix_SORTseq=sce8_qc
+)
+
+datasets = lapply(datasets,gene_filter)
+
+comm_genes = Reduce(intersect, lapply(datasets, rownames))
+
+fix_col_name = function(sce){
+  colnames(sce) = paste(sce$BatchInfo, colnames(sce),sep="_")
+  sce
+}
+datasets = lapply(datasets,fix_col_name)
+
+datasets = lapply(datasets, "[", comm_genes)
+
+sce_combine = Reduce(cbind,datasets)
+
+```
+
+
+```{r}
+cat(paste(format(Sys.time(), "%a %b %d %X %Y"), "start MCMC."), file = log_file, append = TRUE)
+ChainNoSpikes <- BASiCS_MCMC(Data = sce_combine, N = 5000, 
+                             Thin = 10, Burn = 500, 
+                             WithSpikes = FALSE,  Regression = TRUE,
+                             PrintProgress = FALSE,
+                             StoreChains=TRUE,
+                             RunName="RNAmix_BASiCS_norm")
+cat(paste(format(Sys.time(), "%a %b %d %X %Y"), "MCMC finished."), file = log_file, append = TRUE)
+```
+
+
+```{r}
+DenoisedCounts <- BASiCS_DenoisedCounts(Data = sce_combine, Chain = ChainNoSpikes)
+logcounts(sce_combine) = log2(DenoisedCounts+1)
+
+saveRDS(sce_combine,file="RNAmix_BASiCS_noSpike.Rds")
+cat(paste(format(Sys.time(), "%a %b %d %X %Y"), "Done! save the normalized count to file."), file = log_file, append = TRUE)
+```
+
+
+
+

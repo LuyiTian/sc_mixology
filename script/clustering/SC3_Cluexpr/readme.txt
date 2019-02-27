@@ -1,0 +1,1 @@
+SC3 and clusterexperiment cannot run on the linux server. so they are run separately on a mac laptop.

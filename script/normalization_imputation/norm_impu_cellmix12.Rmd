@@ -1,0 +1,376 @@
+---
+title: "cellmix 12 normalization and imputation"
+output: html_notebook
+---
+
+```{r, warning=FALSE,message=FALSE}
+setwd("/stornext/General/data/user_managed/grpu_mritchie_1/SCmixology/analysis_for_resubmit")
+library(scran)
+library(scater)
+library(CellBench)
+library(R.utils)
+MAX_TIME = 60*120
+set_cellbench_threads(nthreads = 1)
+
+log_file =paste("log_file/normimpute_cellmix",format(Sys.time(), "%a_%b_%d"),"txt",sep = ".")
+cat(paste(format(Sys.time(), "%a %b %d %X %Y"), "start preprocessing...\n"), file = log_file, append = TRUE)
+```
+
+# load all data 
+
+# make a list of dataset for `Cellbench`
+
+```{r}
+load("CellBench_data/data/9cellmix_qc.RData")
+
+sce_SC1_qc$group = paste(sce_SC1_qc$H2228,sce_SC1_qc$H1975,sce_SC1_qc$HCC827)
+sce_SC2_qc$group = paste(sce_SC2_qc$H2228,sce_SC2_qc$H1975,sce_SC2_qc$HCC827)
+sce_SC3_qc$group = paste(sce_SC3_qc$H2228,sce_SC3_qc$H1975,sce_SC3_qc$HCC827)
+sce_SC4_qc$group = paste(sce_SC4_qc$H2228,sce_SC4_qc$H1975,sce_SC4_qc$HCC827)
+
+datasets <- list(
+    cellmix1=sce_SC1_qc,
+    cellmix2=sce_SC2_qc,
+    cellmix3=sce_SC3_qc,
+    cellmix4=sce_SC4_qc
+)
+```
+
+
+# set gene filter
+
+```{r}
+gene_filter = function(sce){
+  keep1 = (apply(counts(sce), 1, function(x) mean(x[x>0])) > 1.1)  # average count larger than 1.1
+  keep2 = (rowSums(counts(sce)>0) > 10) # expressed in more than 10 cells
+  sce = sce[(keep1 & keep2), ]
+  return(sce)
+}
+```
+
+ 
+
+# set the normalization methods
+
+```{r}
+library(DESeq2)
+library(scran)
+library(edgeR)
+library(Linnorm)
+library(SCnorm)
+library(scone)
+NUM_OF_THREAD=8
+
+raw_count = function(sce){
+  tp = system.time({
+  logcounts(sce) = counts(sce)
+  })
+  
+  method_name = "raw_count"
+  method_type = "norm"
+  if (!is.null(metadata(sce)$running_time)){
+    metadata(sce)$running_time = rbind(metadata(sce)$running_time, data.frame(method=method_name, type=method_type, time=unname(tp)[1]))
+  }else{
+    metadata(sce)$running_time = data.frame(method=method_name,method_type=method_type,time=unname(tp)[1])
+  }
+  return(sce)
+}
+
+scran_norm = function(sce){
+  tp = system.time({
+  sce = computeSumFactors(sce)
+  sce = normalize(sce) # goes to `logcounts` by default
+  })
+  
+  method_name = "scran"
+  method_type = "norm"
+  if (!is.null(metadata(sce)$running_time)){
+    metadata(sce)$running_time = rbind(metadata(sce)$running_time, data.frame(method=method_name, method_type=method_type, time=unname(tp)[1]))
+  }else{
+    metadata(sce)$running_time = data.frame(method=method_name,method_type=method_type,time=unname(tp)[1])
+  }
+  return(sce)
+}
+
+DESeq2_norm = function(sce){
+  tp = system.time({
+  sizeFactors(sce) <- estimateSizeFactorsForMatrix(counts(sce))
+  sce <- normalize(sce)
+  })
+  
+  method_name = "DESeq2"
+  method_type = "norm"
+  if (!is.null(metadata(sce)$running_time)){
+    metadata(sce)$running_time = rbind(metadata(sce)$running_time, data.frame(method=method_name, method_type=method_type, time=unname(tp)[1]))
+  }else{
+    metadata(sce)$running_time = data.frame(method=method_name,method_type=method_type,time=unname(tp)[1])
+  }
+  return(sce)
+}
+
+TMM_norm = function(sce){
+  tp = system.time({
+  sizeFactors(sce) <- calcNormFactors(counts(sce), method = "TMM")
+  sce <- normalize(sce)
+  })
+  
+  method_name = "TMM"
+  method_type = "norm"
+  if (!is.null(metadata(sce)$running_time)){
+    metadata(sce)$running_time = rbind(metadata(sce)$running_time, data.frame(method=method_name, method_type=method_type, time=unname(tp)[1]))
+  }else{
+    metadata(sce)$running_time = data.frame(method=method_name,method_type=method_type,time=unname(tp)[1])
+  }
+  return(sce)
+}
+
+logCPM_norm = function(sce){
+  tp = system.time({
+  logcounts(sce) = log2(edgeR::cpm(counts(sce)) + 1)
+  })
+  
+  method_name = "logCPM"
+  method_type = "norm"
+  if (!is.null(metadata(sce)$running_time)){
+    metadata(sce)$running_time = rbind(metadata(sce)$running_time, data.frame(method=method_name, method_type=method_type, time=unname(tp)[1]))
+  }else{
+    metadata(sce)$running_time = data.frame(method=method_name,method_type=method_type,time=unname(tp)[1])
+  }
+  return(sce)
+}
+
+linnorm_norm = function(sce){
+  tp = system.time({
+  logcounts(sce) = Linnorm(counts(sce))
+  })
+  
+  method_name = "Linnorm"
+  method_type = "norm"
+  if (!is.null(metadata(sce)$running_time)){
+    metadata(sce)$running_time = rbind(metadata(sce)$running_time, data.frame(method=method_name, method_type=method_type, time=unname(tp)[1]))
+  }else{
+    metadata(sce)$running_time = data.frame(method=method_name,method_type=method_type,time=unname(tp)[1])
+  }
+  return(sce)
+}
+
+SCnorm_norm = function(sce){
+  tp = system.time({
+    try_res = try({
+      withTimeout({
+        SCnorm_out = SCnorm(Data=counts(sce),Conditions = rep(1,ncol(sce)),FilterCellNum = 10, NCores=NUM_OF_THREAD)
+        logcounts(sce) = log2(normcounts(SCnorm_out)+1)
+      },timeout = MAX_TIME, onTimeout="error")
+    })
+    if (class(try_res) == "try-error") {
+    cat(paste(format(Sys.time(), "%a %b %d %X %Y. ERROR: "), print(try_res),"\n"), file = log_file, append = TRUE)
+    }
+  })
+  
+  method_name = "SCnorm"
+  method_type = "norm"
+  if (!is.null(metadata(sce)$running_time)){
+    metadata(sce)$running_time = rbind(metadata(sce)$running_time, data.frame(method=method_name, method_type=method_type, time=unname(tp)[1]))
+  }else{
+    metadata(sce)$running_time = data.frame(method=method_name,method_type=method_type,time=unname(tp)[1])
+  }
+  cat(paste(format(Sys.time(), "%a %b %d %X %Y. FINISHED: "), method_name, "   ", print(dim(sce)), "\n"), file = log_file, append = TRUE)
+  return(sce)
+}
+
+scone_norm = function(sce){
+  tp = system.time({
+  scaling=list(none=identity, # Identity - do nothing
+             sum = SUM_FN, # SCONE library wrappers...
+             tmm = TMM_FN, 
+             uq = UQ_FN,
+             fq = FQT_FN,
+             deseq = DESEQ_FN)
+  results = scone(SconeExperiment(counts(sce)), 
+                  scaling=scaling,
+                  run=TRUE, k_qc=0, k_ruv=0,
+                  return_norm = "in_memory",
+                  zero = "postadjust",
+                  bpparam = BiocParallel::SerialParam())
+  out_norm = get_normalized(results,
+                          method = rownames(get_params(results))[1])
+  logcounts(sce) = log2(out_norm + 1)
+  })
+  
+  method_name = "scone"
+  method_type = "norm"
+  if (!is.null(metadata(sce)$running_time)){
+    metadata(sce)$running_time = rbind(metadata(sce)$running_time, data.frame(method=method_name, method_type=method_type, time=unname(tp)[1]))
+  }else{
+    metadata(sce)$running_time = data.frame(method=method_name,method_type=method_type,time=unname(tp)[1])
+  }
+  return(sce)
+}
+
+norm_method <- list(
+    none = raw_count,
+    scran = scran_norm,
+    DESeq2=DESeq2_norm,
+    TMM=TMM_norm,
+    logCPM=logCPM_norm,
+    Linnorm=linnorm_norm,
+    scone=scone_norm,
+    SCnorm=SCnorm_norm
+)
+```
+
+
+# set the imputation methods
+
+```{r}
+library(SAVER)
+library(DrImpute)
+source("knn-smoothing-master/knn_smooth.R")
+
+no_impute = function(sce){
+  tp = system.time({sce1=sce})
+  method_name = "no_imputation"
+  method_type = "imputation"
+  if (!is.null(metadata(sce)$running_time)){
+    metadata(sce)$running_time = rbind(metadata(sce)$running_time, data.frame(method=method_name, method_type=method_type, time=unname(tp)[1]))
+  }else{
+    metadata(sce)$running_time = data.frame(method=method_name,method_type=method_type,time=unname(tp)[1])
+  }
+  return(sce1)
+}
+
+knn_smooth2 = function(sce){
+  tp = system.time({
+    if("logcounts" %in% assayNames(sce)){
+  logcounts(sce) = knn_smoothing(logcounts(sce), 16)
+    }
+  })
+  
+  method_name = "knn_smooth2"
+  method_type = "imputation"
+  if (!is.null(metadata(sce)$running_time)){
+    metadata(sce)$running_time = rbind(metadata(sce)$running_time, data.frame(method=method_name, method_type=method_type, time=unname(tp)[1]))
+  }else{
+    metadata(sce)$running_time = data.frame(method=method_name,method_type=method_type,time=unname(tp)[1])
+  }
+  return(sce)
+}
+
+DrImpute_impute = function(sce){
+  tp = system.time({
+    if("logcounts" %in% assayNames(sce)){
+  logcounts(sce) <- DrImpute(logcounts(sce))      
+    }
+  })
+  
+  method_name = "DrImpute"
+  method_type = "imputation"
+  if (!is.null(metadata(sce)$running_time)){
+    metadata(sce)$running_time = rbind(metadata(sce)$running_time, data.frame(method=method_name, method_type=method_type, time=unname(tp)[1]))
+  }else{
+    metadata(sce)$running_time = data.frame(method=method_name,method_type=method_type,time=unname(tp)[1])
+  }
+  return(sce)
+}
+
+SAVER_impute = function(sce){
+  tp = system.time({
+    try_res = try({
+      if("logcounts" %in% assayNames(sce)){
+  logcounts(sce) = log2(saver(2^logcounts(sce)-1, ncores=1, size.factor=1, estimates.only = TRUE)+1)
+      }
+    })
+  })
+    if (class(try_res) == "try-error") {
+      print(try_res)
+    }
+  
+  method_name = "SAVER"
+  method_type = "imputation"
+  if (class(try_res) == "try-error") {
+    if (!is.null(metadata(sce)$running_time)){
+    metadata(sce)$running_time = rbind(metadata(sce)$running_time, data.frame(method=method_name, method_type=method_type, time=NA))
+    }else{
+      metadata(sce)$running_time = data.frame(method=method_name,method_type=method_type,time=NA)
+    }
+  }else{
+    if (!is.null(metadata(sce)$running_time)){
+      metadata(sce)$running_time = rbind(metadata(sce)$running_time, data.frame(method=method_name, method_type=method_type, time=unname(tp)[1]))
+    }else{
+      metadata(sce)$running_time = data.frame(method=method_name,method_type=method_type,time=unname(tp)[1])
+    }  
+  }
+  return(sce)
+}
+impute_method <- list(
+  no_impute=no_impute,
+  knn_smooth2=knn_smooth2,
+  DrImpute=DrImpute_impute,
+  SAVER=SAVER_impute
+)
+```
+
+# apply gene filtering
+
+```{r}
+datasets = lapply(datasets,gene_filter)
+```
+
+
+# apply normalization
+
+```{r, warning=FALSE,message=FALSE}
+cat(paste(format(Sys.time(), "%a %b %d %X %Y"), "start to apply normalization methods...\n"), file = log_file, append = TRUE)
+res1 <- datasets %>%
+    apply_methods(norm_method)
+```
+
+# apply imputation methods
+
+```{r, warning=FALSE,message=FALSE}
+cat(paste(format(Sys.time(), "%a %b %d %X %Y"), "start to apply imputation methods...\n"), file = log_file, append = TRUE)
+res2 <- res1 %>%
+    apply_methods(impute_method)
+```
+
+```{r}
+saveRDS(res1, file="/stornext/General/data/user_managed/grpu_mritchie_1/SCmixology/analysis_for_resubmit/rdata/cellmix_all_after_normalization.Rds")
+saveRDS(res2, file="/stornext/General/data/user_managed/grpu_mritchie_1/SCmixology/analysis_for_resubmit/rdata/cellmix_all_after_imputation.Rds")
+```
+
+
+# apply metrics for evaluation
+
+
+use silhouette distance and correlations within technical replications
+
+```{r}
+library(cluster)
+silhouette_pca = function(sce){
+  sce = runPCA(sce)
+  sil = silhouette(as.numeric(factor(sce$group)),  dist(reducedDim(sce,"PCA")))
+  return(mean(as.data.frame(sil[1:nrow(sil),])[,3]))
+}
+
+norm_evaluation <- list(
+  silhouette_mean=silhouette_pca
+)
+```
+
+
+```{r}
+res3 = res2 %>%
+    apply_methods(norm_evaluation)
+
+```
+
+
+```{r}
+ggplot(data=res3,aes(x=norm_method,y=result,col=norm_method))+geom_boxplot()+theme_bw()
+```
+
+
+```{r}
+ggplot(data=res3,aes(x=impute_method,y=result,col=norm_method,shape=norm_method))+geom_jitter(size=2,width = 0.2)+theme_bw()
+```
+
