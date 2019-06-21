@@ -45,6 +45,6 @@ You can find an Rnotebook in the [script/data_QC_visualization](https://github.c
 
 ## Scripts for reproducing a broader methods comparison
 
-The [script] folder contains scripts that can reproduce the analysis and figures from our preprint: [scRNA-seq mixology: towards better benchmarking of single cell RNA-seq protocols and analysis methods](https://www.biorxiv.org/content/early/2018/10/03/433102). 
+The [script] folder contains scripts that can reproduce the analysis and figures from our paper: [Benchmarking single cell RNA-sequencing analysis pipelines using mixture control experiments](https://www.nature.com/articles/s41592-019-0425-8). 
 
 ***Note:*** The `ggtern` package, which has been used to generate the ternary plots, has known issues with recent versions of `ggplot` and the relevant code may be broken if you have updated the `ggplot` package.
