@@ -1,0 +1,179 @@
+---
+title: "make annotations"
+output: html_notebook
+---
+
+## cell mixtures
+
+```{r}
+cellmix_design <- read.csv("mixture_design/cellmix_design.csv", stringsAsFactors=FALSE)
+```
+
+```{r}
+cellmix1 = cellmix_design
+cellmix1 = cellmix1[!(cellmix1$rows ==2), ] #exclude population controls
+cellmix1$cell_name = paste("Mix1",cellmix1$wall_position,sep = "_")
+cellmix1$group =  paste(cellmix1$H2228,cellmix1$H1975,cellmix1$HCC827,sep = "_")
+cellmix1 = cellmix1[,c("cell_name","wall_position","H1975","H2228","HCC827","poor_quality","traj","group")]
+write.csv(cellmix1,file="mixture_design/cellmix1_metadata.csv",row.names = FALSE)
+```
+
+```{r}
+cellmix1 = cellmix_design
+cellmix1 = cellmix1[!(cellmix1$rows ==2), ] #exclude population controls
+cellmix1$cell_name = paste("Mix2",cellmix1$wall_position,sep = "_")
+cellmix1$group =  paste(cellmix1$H2228,cellmix1$H1975,cellmix1$HCC827,sep = "_")
+cellmix1 = cellmix1[,c("cell_name","wall_position","H1975","H2228","HCC827","poor_quality","traj","group")]
+write.csv(cellmix1,file="mixture_design/cellmix2_metadata.csv",row.names = FALSE)
+```
+
+```{r}
+cellmix1 = cellmix_design
+cellmix1 = cellmix1[!(cellmix1$rows ==2), ] #exclude population controls
+cellmix1$cell_name = paste("Mix3",cellmix1$wall_position,sep = "_")
+cellmix1$group =  paste(cellmix1$H2228,cellmix1$H1975,cellmix1$HCC827,sep = "_")
+cellmix1 = cellmix1[,c("cell_name","wall_position","H1975","H2228","HCC827","poor_quality","traj","group")]
+write.csv(cellmix1,file="mixture_design/cellmix3_metadata.csv",row.names = FALSE)
+```
+
+```{r}
+cellmix1 = cellmix_design
+cellmix1 = cellmix1[!(cellmix1$rows ==2), ] #exclude population controls
+cellmix1$cell_name = paste("Mix4",cellmix1$wall_position,sep = "_")
+cellmix1$group =  paste(cellmix1$H2228,cellmix1$H1975,cellmix1$HCC827,sep = "_")
+cellmix1 = cellmix1[,c("cell_name","wall_position","H1975","H2228","HCC827","poor_quality","traj","group")]
+write.csv(cellmix1,file="mixture_design/cellmix4_metadata.csv",row.names = FALSE)
+```
+
+```{r}
+cellmix1 = cellmix_design
+cellmix1 = cellmix1[(cellmix1$rows ==2), ] # population controls
+cellmix1$cell_name = paste("POP",cellmix1$wall_position,sep = "_")
+cellmix1$group =  paste(cellmix1$H2228,cellmix1$H1975,cellmix1$HCC827,sep = "_")
+cellmix1 = cellmix1[,c("cell_name","wall_position","H1975","H2228","HCC827","poor_quality","traj","group")]
+write.csv(cellmix1,file="mixture_design/POP_metadata.csv",row.names = FALSE)
+```
+
+
+## RNA mixtures
+
+```{r}
+RNAmix_design <- read.csv("mixture_design/RNAmix_design.csv", stringsAsFactors=FALSE)
+```
+
+Sort-seq
+```{r}
+RNAmix_design1 = RNAmix_design
+RNAmix_design1$wall_position = RNAmix_design1$cell_name
+RNAmix_design1$cell_name =paste("SortSeq_Mixture_Sample",RNAmix_design1$wall_position,sep = "_")
+RNAmix_design1$group = paste(RNAmix_design1$H2228_prop,RNAmix_design1$H1975_prop,RNAmix_design1$HCC827_prop,sep = "_")
+RNAmix_design1 = RNAmix_design1[,c("cell_name","wall_position","mix","H2228_prop","H1975_prop","HCC827_prop","mRNA_amount","group")]
+write.csv(cellmix1,file="mixture_design/SortSeq_Mixture_Sample_metadata.csv",row.names = FALSE)
+```
+
+CEL-seq
+```{r}
+RNAmix_design1 = RNAmix_design
+RNAmix_design1$wall_position = RNAmix_design1$cell_name
+RNAmix_design1$cell_name =paste("CelSeq2_Mixture_Sample",RNAmix_design1$wall_position,sep = "_")
+RNAmix_design1$group = paste(RNAmix_design1$H2228_prop,RNAmix_design1$H1975_prop,RNAmix_design1$HCC827_prop,sep = "_")
+RNAmix_design1 = RNAmix_design1[,c("cell_name","wall_position","mix","H2228_prop","H1975_prop","HCC827_prop","mRNA_amount","group")]
+write.csv(cellmix1,file="mixture_design/CelSeq2_Mixture_Sample_metadata.csv",row.names = FALSE)
+```
+
+
+
+
+
+## single cells
+
+```{r}
+CELseq_384plate_barcode <- read.csv("CELseq_384plate_barcode.csv", stringsAsFactors=FALSE)
+```
+
+### CEL-seq
+
+```{r}
+sc_CELseq2 <- read.delim("demuxlet_output/sc_CELseq2.best", stringsAsFactors=FALSE)
+
+merge_df = merge(CELseq_384plate_barcode, sc_CELseq2, by.x="index",by.y = "BARCODE")
+merge_df$cell_line_demuxlet = merge_df$SNG.1ST
+merge_df$demuxlet_cls = sapply(strsplit(merge_df$BEST,"-"),function(x){x[1]})
+merge_df$cell_name = merge_df$samplename
+merge_df = merge_df[,c("cell_name","cell_line_demuxlet","demuxlet_cls")]
+write.csv(merge_df,file="single_cell_annotations/NN84_Celseq2_SC_metadata.csv",row.names = FALSE)
+```
+
+## CEL-seq 5 cell lines
+
+plate1
+
+```{r}
+sc_CELseq2 <- read.delim("demuxlet_output/sc_Celseq2_5cl_p1.best", stringsAsFactors=FALSE)
+
+merge_df = merge(CELseq_384plate_barcode, sc_CELseq2, by.x="index",by.y = "BARCODE")
+merge_df$cell_line_demuxlet = merge_df$SNG.1ST
+merge_df$demuxlet_cls = sapply(strsplit(merge_df$BEST,"-"),function(x){x[1]})
+merge_df$cell_name = merge_df$samplename
+merge_df = merge_df[,c("cell_name","cell_line_demuxlet","demuxlet_cls")]
+write.csv(merge_df,file="single_cell_annotations/RPI4_Celseq2_5cl_p1_metadata.csv",row.names = FALSE)
+```
+
+plate2
+
+```{r}
+sc_CELseq2 <- read.delim("demuxlet_output/sc_Celseq2_5cl_p2.best", stringsAsFactors=FALSE)
+
+merge_df = merge(CELseq_384plate_barcode, sc_CELseq2, by.x="index",by.y = "BARCODE")
+merge_df$cell_line_demuxlet = merge_df$SNG.1ST
+merge_df$demuxlet_cls = sapply(strsplit(merge_df$BEST,"-"),function(x){x[1]})
+merge_df$cell_name = merge_df$samplename
+merge_df = merge_df[,c("cell_name","cell_line_demuxlet","demuxlet_cls")]
+write.csv(merge_df,file="single_cell_annotations/RPI5_Celseq2_5cl_p2_metadata.csv",row.names = FALSE)
+```
+
+plate3
+
+```{r}
+sc_CELseq2 <- read.delim("demuxlet_output/sc_Celseq2_5cl_p3.best", stringsAsFactors=FALSE)
+
+merge_df = merge(CELseq_384plate_barcode, sc_CELseq2, by.x="index",by.y = "BARCODE")
+merge_df$cell_line_demuxlet = merge_df$SNG.1ST
+merge_df$demuxlet_cls = sapply(strsplit(merge_df$BEST,"-"),function(x){x[1]})
+merge_df$cell_name = merge_df$samplename
+merge_df = merge_df[,c("cell_name","cell_line_demuxlet","demuxlet_cls")]
+write.csv(merge_df,file="single_cell_annotations/RPI6_Celseq2_5cl_p3_metadata.csv",row.names = FALSE)
+```
+
+## 10X
+
+10X data (3 cell lines)
+
+```{r}
+index_anno <- read.csv("~/git/CellBench_data/misc/single_cell_annotations/GSM3022245_index_anno.csv", header=FALSE, stringsAsFactors=FALSE)
+sc_10x <- read.delim("demuxlet_output/sc_10X.best", stringsAsFactors=FALSE)
+
+merge_df = merge(index_anno, sc_10x, by.x="V2",by.y = "BARCODE")
+merge_df$cell_line_demuxlet = merge_df$SNG.1ST
+merge_df$demuxlet_cls = sapply(strsplit(merge_df$BEST,"-"),function(x){x[1]})
+merge_df$cell_name = merge_df$V1
+merge_df = merge_df[,c("cell_name","cell_line_demuxlet","demuxlet_cls")]
+write.csv(merge_df,file="single_cell_annotations/GSM3022245_10x_3cl_metadata.csv",row.names = FALSE)
+```
+
+10X data (5 cell lines)
+
+```{r}
+index_anno <- read.csv("~/git/CellBench_data/misc/single_cell_annotations/barcode_10x_5cl.csv", header=FALSE, stringsAsFactors=FALSE)
+sc_10x <- read.delim("demuxlet_output/sc_10X_5cl.best", stringsAsFactors=FALSE)
+
+merge_df = merge(index_anno, sc_10x, by.x="V2",by.y = "BARCODE")
+merge_df$cell_line_demuxlet = merge_df$SNG.1ST
+merge_df$demuxlet_cls = sapply(strsplit(merge_df$BEST,"-"),function(x){x[1]})
+merge_df$cell_name = merge_df$V1
+merge_df = merge_df[,c("cell_name","cell_line_demuxlet","demuxlet_cls")]
+write.csv(merge_df,file="single_cell_annotations/GSM3618014_10x_5cl_metadata.csv",row.names = FALSE)
+```
+
+
+
