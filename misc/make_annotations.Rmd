@@ -68,7 +68,7 @@ RNAmix_design1$wall_position = RNAmix_design1$cell_name
 RNAmix_design1$cell_name =paste("SortSeq_Mixture_Sample",RNAmix_design1$wall_position,sep = "_")
 RNAmix_design1$group = paste(RNAmix_design1$H2228_prop,RNAmix_design1$H1975_prop,RNAmix_design1$HCC827_prop,sep = "_")
 RNAmix_design1 = RNAmix_design1[,c("cell_name","wall_position","mix","H2228_prop","H1975_prop","HCC827_prop","mRNA_amount","group")]
-write.csv(cellmix1,file="mixture_design/SortSeq_Mixture_Sample_metadata.csv",row.names = FALSE)
+write.csv(RNAmix_design1,file="mixture_design/SortSeq_Mixture_Sample_metadata.csv",row.names = FALSE)
 ```
 
 CEL-seq
@@ -78,7 +78,7 @@ RNAmix_design1$wall_position = RNAmix_design1$cell_name
 RNAmix_design1$cell_name =paste("CelSeq2_Mixture_Sample",RNAmix_design1$wall_position,sep = "_")
 RNAmix_design1$group = paste(RNAmix_design1$H2228_prop,RNAmix_design1$H1975_prop,RNAmix_design1$HCC827_prop,sep = "_")
 RNAmix_design1 = RNAmix_design1[,c("cell_name","wall_position","mix","H2228_prop","H1975_prop","HCC827_prop","mRNA_amount","group")]
-write.csv(cellmix1,file="mixture_design/CelSeq2_Mixture_Sample_metadata.csv",row.names = FALSE)
+write.csv(RNAmix_design1,file="mixture_design/CelSeq2_Mixture_Sample_metadata.csv",row.names = FALSE)
 ```
 
 
@@ -175,5 +175,19 @@ merge_df = merge_df[,c("cell_name","cell_line_demuxlet","demuxlet_cls")]
 write.csv(merge_df,file="single_cell_annotations/GSM3618014_10x_5cl_metadata.csv",row.names = FALSE)
 ```
 
+
+## Dropseq
+
+```{r}
+index_anno <- read.csv("~/git/CellBench_data/misc/single_cell_annotations/barcode_dropseq.csv", header=FALSE, stringsAsFactors=FALSE)
+sc_10x <- read.delim("demuxlet_output/sc_Dropseq.best", stringsAsFactors=FALSE)
+
+merge_df = merge(index_anno, sc_10x, by.x="V2",by.y = "BARCODE")
+merge_df$cell_line_demuxlet = merge_df$SNG.1ST
+merge_df$demuxlet_cls = sapply(strsplit(merge_df$BEST,"-"),function(x){x[1]})
+merge_df$cell_name = merge_df$V1
+merge_df = merge_df[,c("cell_name","cell_line_demuxlet","demuxlet_cls")]
+write.csv(merge_df,file="single_cell_annotations/GSM3336849_dropseq_metadata.csv",row.names = FALSE)
+```
 
 
