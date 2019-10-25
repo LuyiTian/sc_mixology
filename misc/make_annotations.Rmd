@@ -12,45 +12,45 @@ cellmix_design <- read.csv("mixture_design/cellmix_design.csv", stringsAsFactors
 ```{r}
 cellmix1 = cellmix_design
 cellmix1 = cellmix1[!(cellmix1$rows ==2), ] #exclude population controls
-cellmix1$cell_name = paste("Mix1",cellmix1$wall_position,sep = "_")
+cellmix1$cell_name = paste("Mix1",cellmix1$well_position,sep = "_")
 cellmix1$group =  paste(cellmix1$H2228,cellmix1$H1975,cellmix1$HCC827,sep = "_")
-cellmix1 = cellmix1[,c("cell_name","wall_position","H1975","H2228","HCC827","poor_quality","traj","group")]
+cellmix1 = cellmix1[,c("cell_name","well_position","H1975","H2228","HCC827","poor_quality","traj","group")]
 write.csv(cellmix1,file="mixture_design/cellmix1_metadata.csv",row.names = FALSE)
 ```
 
 ```{r}
 cellmix1 = cellmix_design
 cellmix1 = cellmix1[!(cellmix1$rows ==2), ] #exclude population controls
-cellmix1$cell_name = paste("Mix2",cellmix1$wall_position,sep = "_")
+cellmix1$cell_name = paste("Mix2",cellmix1$well_position,sep = "_")
 cellmix1$group =  paste(cellmix1$H2228,cellmix1$H1975,cellmix1$HCC827,sep = "_")
-cellmix1 = cellmix1[,c("cell_name","wall_position","H1975","H2228","HCC827","poor_quality","traj","group")]
+cellmix1 = cellmix1[,c("cell_name","well_position","H1975","H2228","HCC827","poor_quality","traj","group")]
 write.csv(cellmix1,file="mixture_design/cellmix2_metadata.csv",row.names = FALSE)
 ```
 
 ```{r}
 cellmix1 = cellmix_design
 cellmix1 = cellmix1[!(cellmix1$rows ==2), ] #exclude population controls
-cellmix1$cell_name = paste("Mix3",cellmix1$wall_position,sep = "_")
+cellmix1$cell_name = paste("Mix3",cellmix1$well_position,sep = "_")
 cellmix1$group =  paste(cellmix1$H2228,cellmix1$H1975,cellmix1$HCC827,sep = "_")
-cellmix1 = cellmix1[,c("cell_name","wall_position","H1975","H2228","HCC827","poor_quality","traj","group")]
+cellmix1 = cellmix1[,c("cell_name","well_position","H1975","H2228","HCC827","poor_quality","traj","group")]
 write.csv(cellmix1,file="mixture_design/cellmix3_metadata.csv",row.names = FALSE)
 ```
 
 ```{r}
 cellmix1 = cellmix_design
 cellmix1 = cellmix1[!(cellmix1$rows ==2), ] #exclude population controls
-cellmix1$cell_name = paste("Mix4",cellmix1$wall_position,sep = "_")
+cellmix1$cell_name = paste("Mix4",cellmix1$well_position,sep = "_")
 cellmix1$group =  paste(cellmix1$H2228,cellmix1$H1975,cellmix1$HCC827,sep = "_")
-cellmix1 = cellmix1[,c("cell_name","wall_position","H1975","H2228","HCC827","poor_quality","traj","group")]
+cellmix1 = cellmix1[,c("cell_name","well_position","H1975","H2228","HCC827","poor_quality","traj","group")]
 write.csv(cellmix1,file="mixture_design/cellmix4_metadata.csv",row.names = FALSE)
 ```
 
 ```{r}
 cellmix1 = cellmix_design
 cellmix1 = cellmix1[(cellmix1$rows ==2), ] # population controls
-cellmix1$cell_name = paste("POP",cellmix1$wall_position,sep = "_")
+cellmix1$cell_name = paste("POP",cellmix1$well_position,sep = "_")
 cellmix1$group =  paste(cellmix1$H2228,cellmix1$H1975,cellmix1$HCC827,sep = "_")
-cellmix1 = cellmix1[,c("cell_name","wall_position","H1975","H2228","HCC827","poor_quality","traj","group")]
+cellmix1 = cellmix1[,c("cell_name","well_position","H1975","H2228","HCC827","poor_quality","traj","group")]
 write.csv(cellmix1,file="mixture_design/POP_metadata.csv",row.names = FALSE)
 ```
 
@@ -64,20 +64,20 @@ RNAmix_design <- read.csv("mixture_design/RNAmix_design.csv", stringsAsFactors=F
 Sort-seq
 ```{r}
 RNAmix_design1 = RNAmix_design
-RNAmix_design1$wall_position = RNAmix_design1$cell_name
-RNAmix_design1$cell_name =paste("SortSeq_Mixture_Sample",RNAmix_design1$wall_position,sep = "_")
+RNAmix_design1$well_position = RNAmix_design1$cell_name
+RNAmix_design1$cell_name =paste("SortSeq_Mixture_Sample",RNAmix_design1$well_position,sep = "_")
 RNAmix_design1$group = paste(RNAmix_design1$H2228_prop,RNAmix_design1$H1975_prop,RNAmix_design1$HCC827_prop,sep = "_")
-RNAmix_design1 = RNAmix_design1[,c("cell_name","wall_position","mix","H2228_prop","H1975_prop","HCC827_prop","mRNA_amount","group")]
+RNAmix_design1 = RNAmix_design1[,c("cell_name","well_position","mix","H2228_prop","H1975_prop","HCC827_prop","mRNA_amount","group")]
 write.csv(RNAmix_design1,file="mixture_design/SortSeq_Mixture_Sample_metadata.csv",row.names = FALSE)
 ```
 
 CEL-seq
 ```{r}
 RNAmix_design1 = RNAmix_design
-RNAmix_design1$wall_position = RNAmix_design1$cell_name
-RNAmix_design1$cell_name =paste("CelSeq2_Mixture_Sample",RNAmix_design1$wall_position,sep = "_")
+RNAmix_design1$well_position = RNAmix_design1$cell_name
+RNAmix_design1$cell_name =paste("CelSeq2_Mixture_Sample",RNAmix_design1$well_position,sep = "_")
 RNAmix_design1$group = paste(RNAmix_design1$H2228_prop,RNAmix_design1$H1975_prop,RNAmix_design1$HCC827_prop,sep = "_")
-RNAmix_design1 = RNAmix_design1[,c("cell_name","wall_position","mix","H2228_prop","H1975_prop","HCC827_prop","mRNA_amount","group")]
+RNAmix_design1 = RNAmix_design1[,c("cell_name","well_position","mix","H2228_prop","H1975_prop","HCC827_prop","mRNA_amount","group")]
 write.csv(RNAmix_design1,file="mixture_design/CelSeq2_Mixture_Sample_metadata.csv",row.names = FALSE)
 ```
 

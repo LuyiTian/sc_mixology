@@ -1,4 +1,4 @@
-"cell_name","wall_position","mix","H2228_prop","H1975_prop","HCC827_prop","mRNA_amount","group"
+"cell_name","well_position","mix","H2228_prop","H1975_prop","HCC827_prop","mRNA_amount","group"
 "CelSeq2_Mixture_Sample_A1","A1",1,0.33,0.33,0.33,3.75,"0.33_0.33_0.33"
 "CelSeq2_Mixture_Sample_A2","A2",1,0.33,0.33,0.33,3.75,"0.33_0.33_0.33"
 "CelSeq2_Mixture_Sample_A3","A3",1,0.33,0.33,0.33,3.75,"0.33_0.33_0.33"
