@@ -25,6 +25,10 @@ load("data/sincell_with_class.RData")
 
 This will create three variables: `sce10x_qc`, `sce4_qc`, and `scedrop_qc_qc`. `sce10x_qc` contains the read counts after quality control processing from the 10x platform. `sce4_qc` contains the read counts after quality control processing from the CEL-seq2 platform. `scedrop_qc_qc` contains the read counts after quality control proessing from the Drop-seq platform.
 
+### ground truth
+
+The true label is stored in `colData()`. For single cells the label is in column `cell_line_demuxlet`. For single cell mixtures the ground truth is the combination of three cell lines, which is in column `H1975`, `H2228` and `HCC827`. so one merge and use the combination as the label, such as `paste(sce_SC1_qc$H1975,sce_SC1_qc$H2228,sce_SC1_qc$HCC827,sep="_")`. Similarly, the ground truth in RNA mixture is the proportion of RNA from each cell line, stored in column `H2228_prop`, `H1975_prop` and `HCC827_prop`, which can be merged into one column and use as the label, such as `paste(sce2_qc$H2228_prop,sce2_qc$H1975_prop,sce2_qc$HCC827_prop,sep="_")`.
+
 ## Counts
 
 To access count data from a SingleCellExperiment object, use the `counts(sce)` function:
